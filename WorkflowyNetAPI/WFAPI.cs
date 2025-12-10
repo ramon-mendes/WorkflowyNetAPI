@@ -102,11 +102,12 @@ namespace WorkflowyNetAPI
 			}
 		}
 
-		public async Task<string?> CreateAsync(string? parentitem_id, string name, string? note, string? layoutMode, string? position)
+		// Changed: return deserialized object when possible so controller receives proper JSON value (not a serialized string)
+		public async Task<object?> CreateAsync(string? parentNodeId, string name, string? note, string? layoutMode, string? position)
 		{
 			var body = new
 			{
-				parent_id = string.IsNullOrWhiteSpace(parentitem_id) ? null : parentitem_id,
+				parent_id = string.IsNullOrWhiteSpace(parentNodeId) ? null : parentNodeId,
 				name = name,
 				note = note ?? "",
 				layout_mode = layoutMode ?? "default",
@@ -134,15 +135,27 @@ namespace WorkflowyNetAPI
 				throw new WFAPIException($"Error creating node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
 			}
 
-			return respContent;
+			// Try to deserialize into an object so we don't return a JSON string inside the 'data' envelope.
+			try
+			{
+				// Deserialize to object (JsonElement / dictionary / primitive)
+				var parsed = JsonSerializer.Deserialize<object?>(respContent, _jsonOptions);
+				// If parsing yielded null but respContent is non-empty, return the raw string as a fallback
+				return parsed ?? respContent;
+			}
+			catch(JsonException)
+			{
+				// Not valid JSON: return raw string content
+				return respContent;
+			}
 		}
 
-		public async Task<WFNode?> GetNodeAsync(string item_id)
+		public async Task<WFNode?> GetNodeAsync(string nodeId)
 		{
 			HttpResponseMessage? response;
 			try
 			{
-				response = await _client.GetAsync($"nodes/{item_id}").ConfigureAwait(false);
+				response = await _client.GetAsync($"nodes/{nodeId}").ConfigureAwait(false);
 			}
 			catch(Exception ex)
 			{
@@ -199,16 +212,16 @@ namespace WorkflowyNetAPI
 			}
 		}
 
-		public async Task<WFNode?> UpdateNodeNameAsync(string item_id, string newName)
+		public async Task<WFNode?> UpdateNodeNameAsync(string nodeId, string newName)
 		{
-			var body = new { id = item_id, name = newName };
+			var body = new { id = nodeId, name = newName };
 			var json = JsonSerializer.Serialize(body, _jsonOptions);
 			using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
 			HttpResponseMessage? response;
 			try
 			{
-				response = await _client.PostAsync($"nodes/{item_id}", content).ConfigureAwait(false);
+				response = await _client.PostAsync($"nodes/{nodeId}", content).ConfigureAwait(false);
 			}
 			catch(Exception ex)
 			{
@@ -234,12 +247,12 @@ namespace WorkflowyNetAPI
 		}
 
 		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task DeleteAsync(string item_id)
+		public async Task DeleteAsync(string nodeId)
 		{
 			HttpResponseMessage? response;
 			try
 			{
-				response = await _client.DeleteAsync($"nodes/{item_id}").ConfigureAwait(false);
+				response = await _client.DeleteAsync($"nodes/{nodeId}").ConfigureAwait(false);
 			}
 			catch(Exception ex)
 			{
@@ -251,12 +264,12 @@ namespace WorkflowyNetAPI
 		}
 
 		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task CompleteAsync(string item_id)
+		public async Task CompleteAsync(string nodeId)
 		{
 			HttpResponseMessage? response;
 			try
 			{
-				response = await _client.PostAsync($"nodes/{item_id}/complete", new StringContent(string.Empty)).ConfigureAwait(false);
+				response = await _client.PostAsync($"nodes/{nodeId}/complete", new StringContent(string.Empty)).ConfigureAwait(false);
 			}
 			catch(Exception ex)
 			{
@@ -268,12 +281,12 @@ namespace WorkflowyNetAPI
 		}
 
 		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task UncompleteAsync(string item_id)
+		public async Task UncompleteAsync(string nodeId)
 		{
 			HttpResponseMessage? response;
 			try
 			{
-				response = await _client.PostAsync($"nodes/{item_id}/uncomplete", new StringContent(string.Empty)).ConfigureAwait(false);
+				response = await _client.PostAsync($"nodes/{nodeId}/uncomplete", new StringContent(string.Empty)).ConfigureAwait(false);
 			}
 			catch(Exception ex)
 			{
