@@ -29,7 +29,6 @@ async function runWFAPITest() {
         console.log("✅ Node created:", newNode);
 
         const item_id = newNode?.item_id || null;
-        debugger;
         if(!item_id) throw new Error("Node ID not returned in creation response!");
 
         // Fetch node info

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -42,16 +42,20 @@ namespace WorkflowyNetAPI
 			_client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
 			_client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", api_key);
 			_client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+			// Register converters for DateTime handling of unix timestamps
+			_jsonOptions.Converters.Add(new UnixEpochDateTimeConverter());
+			_jsonOptions.Converters.Add(new NullableUnixEpochDateTimeConverter());
 		}
 
-		private static object? TryParseError(string? content)
+		private object? TryParseError(string? content)
 		{
 			if(string.IsNullOrWhiteSpace(content))
 				return null;
 
 			try
 			{
-				return JsonSerializer.Deserialize<object?>(content);
+				return JsonSerializer.Deserialize<object?>(content, _jsonOptions);
 			}
 			catch
 			{
@@ -59,9 +63,9 @@ namespace WorkflowyNetAPI
 			}
 		}
 
-		// Agnostic helper for responses that contain a top-level {"status":"ok"} shape.
-		// Throws WFAPIException on any non-success condition (HTTP error, missing/invalid status, parsing error).
-		private static void EnsureStatusOkOrThrow(HttpResponseMessage? response, string content, string operationDescription)
+		// Generic helper to check the HTTP response and throw WFAPIException when non-success.
+		// Keeps error parsing/throwing logic in one place to avoid duplication.
+		private void EnsureHttpSuccessOrThrow(HttpResponseMessage? response, string content, string operationDescription)
 		{
 			if(response == null)
 			{
@@ -73,6 +77,14 @@ namespace WorkflowyNetAPI
 				var errorObj = TryParseError(content);
 				throw new WFAPIException($"{operationDescription}: HTTP {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
 			}
+		}
+
+		// Agnostic helper for responses that contain a top-level {"status":"ok"} shape.
+		// Throws WFAPIException on any non-success condition (HTTP error, missing/invalid status, parsing error).
+		private void EnsureStatusOkOrThrow(HttpResponseMessage? response, string content, string operationDescription)
+		{
+			// First verify HTTP-level success using the generic helper
+			EnsureHttpSuccessOrThrow(response, content, operationDescription);
 
 			try
 			{
@@ -129,11 +141,7 @@ namespace WorkflowyNetAPI
 
 			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-			if(!response.IsSuccessStatusCode)
-			{
-				var errorObj = TryParseError(respContent);
-				throw new WFAPIException($"Error creating node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
-			}
+			EnsureHttpSuccessOrThrow(response, respContent, "Error creating node");
 
 			// Try to deserialize into an object so we don't return a JSON string inside the 'data' envelope.
 			try
@@ -164,11 +172,7 @@ namespace WorkflowyNetAPI
 
 			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-			if(!response.IsSuccessStatusCode)
-			{
-				var errorObj = TryParseError(respContent);
-				throw new WFAPIException($"Error fetching node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
-			}
+			EnsureHttpSuccessOrThrow(response, respContent, "Error fetching node");
 
 			try
 			{
@@ -180,7 +184,7 @@ namespace WorkflowyNetAPI
 			}
 		}
 
-		public async Task<WFNode[]?> GetNodesAsync(string? parentId = null)
+		public async Task<WFNodesResponse> GetNodesAsync(string? parentId = null)
 		{
 			var url = parentId == null ? "nodes?parent_id=None" : $"nodes?parent_id={Uri.EscapeDataString(parentId)}";
 
@@ -196,15 +200,41 @@ namespace WorkflowyNetAPI
 
 			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-			if(!response.IsSuccessStatusCode)
-			{
-				var errorObj = TryParseError(respContent);
-				throw new WFAPIException($"Error fetching nodes: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
-			}
+			EnsureHttpSuccessOrThrow(response, respContent, "Error fetching nodes");
 
 			try
 			{
-				return JsonSerializer.Deserialize<WFNode[]?>(respContent, _jsonOptions);
+				respContent = @"{
+    ""nodes"": [
+        {
+            ""id"": ""f7c77d21-e74c-8852-ec8e-a95a8e366059"",
+            ""name"": """",
+            ""note"": """",
+            ""parent_id"": null,
+            ""priority"": 27,
+            ""completed"": false,
+            ""data"": {
+                ""layoutMode"": ""divider""
+            },
+            ""createdAt"": 1764546878,
+            ""modifiedAt"": 1764546880,
+            ""completedAt"": null
+        }
+    ]
+}";
+
+#if DEBUG
+				try
+				{
+					var element = JsonSerializer.Deserialize<WFNodesResponse>(respContent);
+				}
+				catch(JsonException ex)
+				{
+					Console.WriteLine($"Error at line {ex.LineNumber}, byte {ex.BytePositionInLine}");
+					Console.WriteLine(ex.Message);
+				}
+#endif
+				return JsonSerializer.Deserialize<WFNodesResponse>(respContent, _jsonOptions)!;
 			}
 			catch(JsonException je)
 			{
@@ -230,11 +260,7 @@ namespace WorkflowyNetAPI
 
 			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-			if(!response.IsSuccessStatusCode)
-			{
-				var errorObj = TryParseError(respContent);
-				throw new WFAPIException($"Error updating node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
-			}
+			EnsureHttpSuccessOrThrow(response, respContent, "Error updating node");
 
 			try
 			{
