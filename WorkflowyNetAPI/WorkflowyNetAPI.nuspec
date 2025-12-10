@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>WorkflowyNetAPI</id>
+
+    <!-- Version is replaced by dotnet pack using -Version or PackageVersion -->
+    <version>$version$</version>
+
+    <authors>Ramon Mendes</authors>
+    <owners>Your Name</owners>
+
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/ramon-mendes/WorkflowyNetAPI</projectUrl>
+    <repository type="git" url="https://github.com/ramon-mendes/WorkflowyNetAPI" />
+
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+
+    <description>
+      A .NET library for interacting with the Workflowy API, including optional JavaScript helpers.
+    </description>
+
+    <tags>workflowy api dotnet csharp productivity</tags>
+
+    <dependencies>
+      <!-- example -->
+      <!-- <dependency id="Newtonsoft.Json" version="13.0.1" /> -->
+    </dependencies>
+  </metadata>
+
+  <files>
+    <!-- Include your built DLL -->
+    <file src="bin/Release/net8.0/WorkflowyNetAPI.dll" target="lib/net8.0" />
+
+    <!-- Include the optional JS file -->
+    <file src="js/WF_api.js" target="contentFiles/any/js/" />
+  </files>
+</package>

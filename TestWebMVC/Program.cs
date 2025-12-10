@@ -1,3 +1,5 @@
+using TestWebMVC.Controllers;
+
 namespace TestWebMVC
 {
 	public class Program
@@ -8,7 +10,9 @@ namespace TestWebMVC
 
 			// Add services to the container.
 			builder.Services.AddControllersWithViews()
-				.AddRazorRuntimeCompilation();
+				.AddRazorRuntimeCompilation()
+				.AddApplicationPart(typeof(WFAPIController).Assembly)
+				.AddControllersAsServices();
 
 			var app = builder.Build();
 
