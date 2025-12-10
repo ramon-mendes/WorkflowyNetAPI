@@ -19,7 +19,10 @@ namespace WorkflowyNetAPI
         [JsonPropertyName("note")]
         public string Note { get; set; }
 
-        [JsonPropertyName("priority")]
+		[JsonPropertyName("parent_id")]
+		public string ParentId { get; set; }
+
+		[JsonPropertyName("priority")]
         public int Priority { get; set; }
 
         [JsonPropertyName("data")]
