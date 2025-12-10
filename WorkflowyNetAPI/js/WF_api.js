@@ -30,8 +30,8 @@ async function wfapiRequest(endpoint, options = {}) {
 // === Individual endpoint functions ======================
 
 // GET /WFAPI/node/{id}
-export async function WF_fetchNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}`);
+export async function WF_fetchNode(item_id) {
+    return wfapiRequest(`/node/${item_id}`);
 }
 
 // GET /WFAPI/nodes?parentId=xxx
@@ -41,34 +41,34 @@ export async function WF_fetchNodes(parentId = null) {
 }
 
 // POST /WFAPI/node/{id}
-export async function WF_updateNodeName(nodeId, name) {
-    return wfapiRequest(`/node/${nodeId}`, {
+export async function WF_updateNodeName(item_id, name) {
+    return wfapiRequest(`/node/${item_id}`, {
         method: "POST",
         body: JSON.stringify({ name })
     });
 }
 
 // POST /WFAPI/node
-export async function WF_createNode({ parentNodeId, name, note = "", layoutMode = "default", position = "last" }) {
+export async function WF_createNode({ parentitem_id, name, note = "", layoutMode = "default", position = "last" }) {
     return wfapiRequest(`/node`, {
         method: "POST",
-        body: JSON.stringify({ parentNodeId, name, note, layoutMode, position })
+        body: JSON.stringify({ parentitem_id, name, note, layoutMode, position })
     });
 }
 
 // DELETE /WFAPI/node/{id}
-export async function WF_deleteNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}`, { method: "DELETE" });
+export async function WF_deleteNode(item_id) {
+    return wfapiRequest(`/node/${item_id}`, { method: "DELETE" });
 }
 
 // POST /WFAPI/node/{id}/complete
-export async function WF_completeNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}/complete`, { method: "POST" });
+export async function WF_completeNode(item_id) {
+    return wfapiRequest(`/node/${item_id}/complete`, { method: "POST" });
 }
 
 // POST /WFAPI/node/{id}/uncomplete
-export async function WF_uncompleteNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}/uncomplete`, { method: "POST" });
+export async function WF_uncompleteNode(item_id) {
+    return wfapiRequest(`/node/${item_id}/uncomplete`, { method: "POST" });
 }
 
 // =========================================================

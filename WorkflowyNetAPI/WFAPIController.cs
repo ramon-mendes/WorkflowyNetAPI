@@ -6,13 +6,12 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using WorkflowyNetAPI;
 
-namespace TestWebMVC.Controllers
+namespace WorkflowyNetAPI
 {
 	public class NodeCreateRequest
 	{
-		public string? ParentNodeId { get; set; }
+		public string? Parentitem_id { get; set; }
 
 		[Required(ErrorMessage = "The Name field is required.")]
 		public string Name { get; set; }
@@ -168,7 +167,7 @@ namespace TestWebMVC.Controllers
 			try
 			{
 				var response = await _wfClient.CreateAsync(
-					request.ParentNodeId,
+					request.Parentitem_id,
 					request.Name,
 					request.Note,
 					request.LayoutMode,

@@ -1,7 +1,7 @@
 ﻿// === WFAPI Helper =======================================
-// Unified API wrapper that matches the standardized backend envelope
-// All responses have the format:
-// { success: true/false, data: ..., error: ... }
+// Assumes server always returns the canonical ProblemDetails-shaped envelope:
+// { type?, title, status, data?, errors?, traceId }
+// Successful responses return data; errors throw with the first validation message (if any).
 // =========================================================
 
 async function wfapiRequest(endpoint, options = {}) {
@@ -11,72 +11,69 @@ async function wfapiRequest(endpoint, options = {}) {
         ...options
     };
 
+    const response = await fetch(url, config);
+
+    // Parse JSON body (throw generic if no JSON and non-OK)
+    let body;
     try {
-        const response = await fetch(url, config);
-        const result = await response.json();
-
-        if(!response.ok || !result.success) {
-            const message = result.error || `HTTP ${response.status}`;
-            throw new Error(message);
-        }
-
-        return result.data;
-    } catch(error) {
-        console.error(`WFAPI error (${endpoint}):`, error);
-        throw error;
+        body = await response.json();
+    } catch(e) {
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        return null;
     }
+
+    // Treat body as canonical envelope
+    const status = body.status ?? response.status;
+
+    if(status >= 200 && status < 300) {
+        return body.data;
+    }
+
+    // Non-2xx -> prefer validation error messages if present
+    const errors = body.errors || {};
+    const firstField = Object.keys(errors)[0];
+    const firstMsg = firstField && Array.isArray(errors[firstField]) && errors[firstField][0];
+    const message = firstMsg || body.detail || body.title || `HTTP ${status}`;
+    const err = new Error(message);
+    err.details = body;
+    throw err;
 }
 
 // === Individual endpoint functions ======================
 
-// GET /WFAPI/node/{id}
-export async function WF_fetchNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}`);
+export async function WF_fetchNode(item_id) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}`);
 }
 
-// GET /WFAPI/nodes?parentId=xxx
 export async function WF_fetchNodes(parentId = null) {
     const query = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
     return wfapiRequest(`/nodes${query}`);
 }
 
-// POST /WFAPI/node/{id}
-export async function WF_updateNodeName(nodeId, name) {
-    return wfapiRequest(`/node/${nodeId}`, {
+export async function WF_updateNodeName(item_id, name) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}`, {
         method: "POST",
         body: JSON.stringify({ name })
     });
 }
 
-// POST /WFAPI/node
-export async function WF_createNode({ parentNodeId, name, note = "", layoutMode = "default", position = "last" }) {
+export async function WF_createNode({ parentitem_id, name, note = "", layoutMode = "default", position = "last" }) {
     return wfapiRequest(`/node`, {
         method: "POST",
-        body: JSON.stringify({ parentNodeId, name, note, layoutMode, position })
+        body: JSON.stringify({ parentitem_id, name, note, layoutMode, position })
     });
 }
 
-// DELETE /WFAPI/node/{id}
-export async function WF_deleteNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}`, { method: "DELETE" });
+export async function WF_deleteNode(item_id) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}`, { method: "DELETE" });
 }
 
-// POST /WFAPI/node/{id}/complete
-export async function WF_completeNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}/complete`, { method: "POST" });
+export async function WF_completeNode(item_id) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}/complete`, { method: "POST" });
 }
 
-// POST /WFAPI/node/{id}/uncomplete
-export async function WF_uncompleteNode(nodeId) {
-    return wfapiRequest(`/node/${nodeId}/uncomplete`, { method: "POST" });
+export async function WF_uncompleteNode(item_id) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}/uncomplete`, { method: "POST" });
 }
 
-// =========================================================
-// Example usage:
-// try {
-//     const node = await WF_fetchNode("abc123");
-//     console.log("Node:", node);
-// } catch (err) {
-//     alert("Error: " + err.message);
-// }
 // =========================================================

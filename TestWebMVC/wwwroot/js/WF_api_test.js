@@ -20,35 +20,36 @@ async function runWFAPITest() {
         // Create a new node
         console.log("Creating new node...");
         const newNode = await WF_createNode({
-            parentNodeId: null, // root
+            parentitem_id: null, // root
             name: "🧪 Test Node",
             note: "Created during automated test",
             layoutMode: "default",
-            position: "last"
+            position: "bottom"
         });
         console.log("✅ Node created:", newNode);
 
-        const nodeId = newNode?.id || newNode?.node_id || null;
-        if(!nodeId) throw new Error("Node ID not returned in creation response!");
+        const item_id = newNode?.item_id || null;
+        debugger;
+        if(!item_id) throw new Error("Node ID not returned in creation response!");
 
         // Fetch node info
         console.log("Fetching node info...");
-        const node = await WF_fetchNode(nodeId);
+        const node = await WF_fetchNode(item_id);
         console.log("✅ Node fetched:", node);
 
         // Update node name
         console.log("Updating node name...");
-        const updated = await WF_updateNodeName(nodeId, "🧠 Test Node (Renamed)");
+        const updated = await WF_updateNodeName(item_id, "🧠 Test Node (Renamed)");
         console.log("✅ Node renamed:", updated);
 
         // Mark node as completed
         console.log("Completing node...");
-        const completed = await WF_completeNode(nodeId);
+        const completed = await WF_completeNode(item_id);
         console.log("✅ Node completed:", completed);
 
         // Uncomplete the node
         console.log("Uncompleting node...");
-        const uncompleted = await WF_uncompleteNode(nodeId);
+        const uncompleted = await WF_uncompleteNode(item_id);
         console.log("✅ Node uncompleted:", uncompleted);
 
         // List nodes under the same parent (optional)
@@ -58,7 +59,7 @@ async function runWFAPITest() {
 
         // Delete the node
         console.log("Deleting node...");
-        const deleted = await WF_deleteNode(nodeId);
+        const deleted = await WF_deleteNode(item_id);
         console.log("✅ Node deleted:", deleted);
 
         console.log("🎉 All API tests passed successfully!");

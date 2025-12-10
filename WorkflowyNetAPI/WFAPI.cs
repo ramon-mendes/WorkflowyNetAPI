@@ -1,9 +1,13 @@
-using RestSharp;
+using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace WorkflowyNetAPI
 {
-	public class WFAPIException : Exception
+	public class WFAPIException : System.Exception
 	{
 		public object? Error { get; }
 		public int StatusCode { get; }
@@ -21,17 +25,23 @@ namespace WorkflowyNetAPI
 		private const string BaseUrl = "https://workflowy.com/api/v1/";
 		private const string UserAgent = "insomnia/11.6.1";
 
-		private readonly RestClient _client;
+		private readonly HttpClient _client;
+		private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
 		public WFAPI(string api_key)
 		{
-			var options = new RestClientOptions(BaseUrl)
+			if(string.IsNullOrWhiteSpace(api_key))
+				throw new ArgumentException("API key must be provided", nameof(api_key));
+
+			_client = new HttpClient
 			{
-				ThrowOnAnyError = true
+				BaseAddress = new Uri(BaseUrl),
+				Timeout = TimeSpan.FromSeconds(30)
 			};
-			_client = new RestClient(options);
-			_client.AddDefaultHeader("User-Agent", UserAgent);
-			_client.AddDefaultHeader("Authorization", $"Bearer {api_key}");
+
+			_client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+			_client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", api_key);
+			_client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 		}
 
 		private static object? TryParseError(string? content)
@@ -41,155 +51,237 @@ namespace WorkflowyNetAPI
 
 			try
 			{
-				// Try to parse JSON into a generic object
 				return JsonSerializer.Deserialize<object?>(content);
 			}
 			catch
 			{
-				// If not JSON, return the raw content string
 				return content;
 			}
 		}
 
-		public async Task<string?> CreateAsync(string? parentNodeId, string name, string? note, string? layoutMode, string? position)
-		{
-			var body = new
-			{
-				parent_id = string.IsNullOrWhiteSpace(parentNodeId) ? null : parentNodeId,
-				name = name,
-				note = note ?? "",
-				layout_mode = layoutMode ?? "default",
-				position = position ?? "last"
-			};
-
-			var request = new RestRequest("nodes", Method.Post)
-				.AddJsonBody(body);
-
-			RestResponse? response = await _client.ExecuteAsync(request);
-
-			if(response == null || !response.IsSuccessful)
-			{
-				var errorObj = TryParseError(response?.Content);
-				throw new WFAPIException($"Error creating node: {(response?.StatusCode.ToString() ?? "no-response")}", errorObj, (int?)(response?.StatusCode) ?? 500);
-			}
-
-			return response.Content;
-		}
-
-		public async Task<WFNode?> GetNodeAsync(string nodeId)
-		{
-			var request = new RestRequest($"nodes/{nodeId}", Method.Get);
-			RestResponse? response = await _client.ExecuteAsync(request);
-
-			if(response == null || !response.IsSuccessful)
-			{
-				var errorObj = TryParseError(response?.Content);
-				throw new WFAPIException($"Error fetching node: {(response?.StatusCode.ToString() ?? "no-response")}", errorObj, (int?)(response?.StatusCode) ?? 500);
-			}
-
-			return JsonSerializer.Deserialize<WFNodeResponse?>(response.Content)?.Node;
-		}
-
-		public async Task<WFNode[]?> GetNodesAsync(string? parentId = null)
-		{
-			string url = parentId == null ? "nodes?parent_id=None" : $"nodes?parent_id={parentId}";
-			var request = new RestRequest(url, Method.Get);
-			RestResponse? response = await _client.ExecuteAsync(request);
-
-			if(response == null || !response.IsSuccessful)
-			{
-				var errorObj = TryParseError(response?.Content);
-				throw new WFAPIException($"Error fetching nodes: {(response?.StatusCode.ToString() ?? "no-response")}", errorObj, (int?)(response?.StatusCode) ?? 500);
-			}
-
-			return JsonSerializer.Deserialize<WFNode[]?>(response.Content);
-		}
-
-		public async Task<WFNode?> UpdateNodeNameAsync(string nodeId, string newName)
-		{
-			var request = new RestRequest($"nodes/{nodeId}", Method.Post)
-				.AddJsonBody(new { id = nodeId, name = newName });
-
-			RestResponse? response = await _client.ExecuteAsync(request);
-
-			if(response == null || !response.IsSuccessful)
-			{
-				var errorObj = TryParseError(response?.Content);
-				throw new WFAPIException($"Error updating node: {(response?.StatusCode.ToString() ?? "no-response")}", errorObj, (int?)(response?.StatusCode) ?? 500);
-			}
-
-			return JsonSerializer.Deserialize<WFNode?>(response.Content);
-		}
-
 		// Agnostic helper for responses that contain a top-level {"status":"ok"} shape.
 		// Throws WFAPIException on any non-success condition (HTTP error, missing/invalid status, parsing error).
-		private static void EnsureStatusOkOrThrow(RestResponse? response, string operationDescription)
+		private static void EnsureStatusOkOrThrow(HttpResponseMessage? response, string content, string operationDescription)
 		{
 			if(response == null)
 			{
 				throw new WFAPIException($"{operationDescription}: empty response", null, 0);
 			}
 
-			if(!response.IsSuccessful)
+			if(!response.IsSuccessStatusCode)
 			{
-				var errorObj = TryParseError(response.Content);
-				throw new WFAPIException($"{operationDescription}: HTTP {(int)response.StatusCode} - {response.StatusDescription}", errorObj, (int)response.StatusCode);
+				var errorObj = TryParseError(content);
+				throw new WFAPIException($"{operationDescription}: HTTP {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
 			}
 
 			try
 			{
-				using var doc = JsonDocument.Parse(response.Content ?? "{}");
+				using var doc = JsonDocument.Parse(content ?? "{}");
 				if(doc.RootElement.TryGetProperty("status", out var statusProp))
 				{
 					var status = statusProp.GetString();
 					if(!string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase))
 					{
-						var err = TryParseError(response.Content);
+						var err = TryParseError(content);
 						throw new WFAPIException($"{operationDescription}: status != ok ({status})", err, (int)response.StatusCode);
 					}
 
-					// status == ok -> success (return normally)
+					// status == ok -> success
 					return;
 				}
 				else
 				{
-					// No 'status' property -> unexpected shape
-					var err = TryParseError(response.Content);
+					var err = TryParseError(content);
 					throw new WFAPIException($"{operationDescription}: unexpected response shape (missing 'status')", err, (int)response.StatusCode);
 				}
 			}
 			catch(JsonException je)
 			{
-				var err = TryParseError(response.Content);
+				var err = TryParseError(content);
 				throw new WFAPIException($"{operationDescription}: error parsing response JSON: {je.Message}", err, (int)response.StatusCode);
 			}
 		}
 
-		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task DeleteAsync(string nodeId)
+		public async Task<string?> CreateAsync(string? parentitem_id, string name, string? note, string? layoutMode, string? position)
 		{
-			var request = new RestRequest($"nodes/{nodeId}", Method.Delete);
-			RestResponse? response = await _client.ExecuteAsync(request);
+			var body = new
+			{
+				parent_id = string.IsNullOrWhiteSpace(parentitem_id) ? null : parentitem_id,
+				name = name,
+				note = note ?? "",
+				layout_mode = layoutMode ?? "default",
+				position = position ?? "last"
+			};
 
-			EnsureStatusOkOrThrow(response, "Delete node");
+			var json = JsonSerializer.Serialize(body, _jsonOptions);
+			using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.PostAsync("nodes", content).ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error creating node: {ex.Message}", ex.Message, 0);
+			}
+
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+			if(!response.IsSuccessStatusCode)
+			{
+				var errorObj = TryParseError(respContent);
+				throw new WFAPIException($"Error creating node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
+			}
+
+			return respContent;
+		}
+
+		public async Task<WFNode?> GetNodeAsync(string item_id)
+		{
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.GetAsync($"nodes/{item_id}").ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error fetching node: {ex.Message}", ex.Message, 0);
+			}
+
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+			if(!response.IsSuccessStatusCode)
+			{
+				var errorObj = TryParseError(respContent);
+				throw new WFAPIException($"Error fetching node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
+			}
+
+			try
+			{
+				return JsonSerializer.Deserialize<WFNodeResponse?>(respContent, _jsonOptions)?.Node;
+			}
+			catch(JsonException je)
+			{
+				throw new WFAPIException($"Error deserializing node response: {je.Message}", respContent, (int)response.StatusCode);
+			}
+		}
+
+		public async Task<WFNode[]?> GetNodesAsync(string? parentId = null)
+		{
+			var url = parentId == null ? "nodes?parent_id=None" : $"nodes?parent_id={Uri.EscapeDataString(parentId)}";
+
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.GetAsync(url).ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error fetching nodes: {ex.Message}", ex.Message, 0);
+			}
+
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+			if(!response.IsSuccessStatusCode)
+			{
+				var errorObj = TryParseError(respContent);
+				throw new WFAPIException($"Error fetching nodes: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
+			}
+
+			try
+			{
+				return JsonSerializer.Deserialize<WFNode[]?>(respContent, _jsonOptions);
+			}
+			catch(JsonException je)
+			{
+				throw new WFAPIException($"Error deserializing nodes response: {je.Message}", respContent, (int)response.StatusCode);
+			}
+		}
+
+		public async Task<WFNode?> UpdateNodeNameAsync(string item_id, string newName)
+		{
+			var body = new { id = item_id, name = newName };
+			var json = JsonSerializer.Serialize(body, _jsonOptions);
+			using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.PostAsync($"nodes/{item_id}", content).ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error updating node: {ex.Message}", ex.Message, 0);
+			}
+
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+			if(!response.IsSuccessStatusCode)
+			{
+				var errorObj = TryParseError(respContent);
+				throw new WFAPIException($"Error updating node: {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
+			}
+
+			try
+			{
+				return JsonSerializer.Deserialize<WFNode?>(respContent, _jsonOptions);
+			}
+			catch(JsonException je)
+			{
+				throw new WFAPIException($"Error deserializing update response: {je.Message}", respContent, (int)response.StatusCode);
+			}
 		}
 
 		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task CompleteAsync(string nodeId)
+		public async Task DeleteAsync(string item_id)
 		{
-			var request = new RestRequest($"nodes/{nodeId}/complete", Method.Post);
-			RestResponse? response = await _client.ExecuteAsync(request);
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.DeleteAsync($"nodes/{item_id}").ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error deleting node: {ex.Message}", ex.Message, 0);
+			}
 
-			EnsureStatusOkOrThrow(response, "Complete node");
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+			EnsureStatusOkOrThrow(response, respContent, "Delete node");
 		}
 
 		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
-		public async Task UncompleteAsync(string nodeId)
+		public async Task CompleteAsync(string item_id)
 		{
-			var request = new RestRequest($"nodes/{nodeId}/uncomplete", Method.Post);
-			RestResponse? response = await _client.ExecuteAsync(request);
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.PostAsync($"nodes/{item_id}/complete", new StringContent(string.Empty)).ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error completing node: {ex.Message}", ex.Message, 0);
+			}
 
-			EnsureStatusOkOrThrow(response, "Uncomplete node");
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+			EnsureStatusOkOrThrow(response, respContent, "Complete node");
+		}
+
+		// NOTE: Changed from Task<bool> to Task. On failure this method throws WFAPIException.
+		public async Task UncompleteAsync(string item_id)
+		{
+			HttpResponseMessage? response;
+			try
+			{
+				response = await _client.PostAsync($"nodes/{item_id}/uncomplete", new StringContent(string.Empty)).ConfigureAwait(false);
+			}
+			catch(Exception ex)
+			{
+				throw new WFAPIException($"Error uncompleting node: {ex.Message}", ex.Message, 0);
+			}
+
+			var respContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+			EnsureStatusOkOrThrow(response, respContent, "Uncomplete node");
 		}
 	}
 }
