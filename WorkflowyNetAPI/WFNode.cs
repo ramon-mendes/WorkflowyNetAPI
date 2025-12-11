@@ -60,3 +60,4 @@ namespace WorkflowyNetAPI
 		public string LayoutMode { get; set; } = null!;
 	}
 }
+
