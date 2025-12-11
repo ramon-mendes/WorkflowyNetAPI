@@ -64,15 +64,7 @@ jobs:
         for nupkg in ./output/*.nupkg; do
           dotnet nuget push "$nupkg" \
             --source "https://nuget.pkg.github.com/ramon-mendes/index.json" \
-            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --api-key ${{ secrets.GH_PACKAGES_TOKEN  }} \
             --skip-duplicate
         done
-
-    # -----------------------------
-    # 🔵 Publish to NuGet.org
-    # -----------------------------
-    - name: Publish to NuGet.org
-      run: dotnet nuget push "./output/*.nupkg" \
-           --source "https://api.nuget.org/v3/index.json" \
-           --api-key ${{ secrets.NUGET_API_KEY }} \
-           --skip-duplicate
+        
