@@ -16,7 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{02EA
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{8950B792-47A4-4237-A0DC-DB3E4F441C5D}"
 	ProjectSection(SolutionItems) = preProject
-		.github\workflows\pack.yml = .github\workflows\pack.yml
 		.github\workflows\publish.yml = .github\workflows\publish.yml
 	EndProjectSection
 EndProject
