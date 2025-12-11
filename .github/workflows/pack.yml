@@ -26,7 +26,7 @@ jobs:
       run: dotnet build --configuration Release --no-restore
 
     - name: Pack
-      run: dotnet pack ./WorkflowyNetAPI.csproj --configuration Release --no-build -o ./output
+      run: dotnet pack ./WorkflowyNetAPI/WorkflowyNetAPI.csproj --configuration Release --no-build -o ./output
 
     # Save the .nupkg as an artifact
     - name: Upload package artifact
