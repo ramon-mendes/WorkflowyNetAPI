@@ -60,10 +60,13 @@ jobs:
     # 🔵 Publish to GitHub Packages
     # -----------------------------
     - name: Publish to GitHub Packages
-      run: dotnet nuget push "./output/*.nupkg" \
-           --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-           --api-key ${{ secrets.GITHUB_TOKEN }} \
-           --skip-duplicate
+      run: |
+        for nupkg in ./output/*.nupkg; do
+          dotnet nuget push "$nupkg" \
+            --source "https://nuget.pkg.github.com/ramon-mendes/index.json" \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+        done
 
     # -----------------------------
     # 🔵 Publish to NuGet.org
