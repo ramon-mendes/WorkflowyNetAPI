@@ -16,7 +16,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
 
     <description>
-      A .NET library for interacting with the Workflowy API, including optional JavaScript helpers.
+      A complete .NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs
     </description>
 
     <tags>workflowy api dotnet csharp productivity</tags>
