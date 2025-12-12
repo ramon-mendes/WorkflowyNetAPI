@@ -1,4 +1,4 @@
-using TestWebMVC.Controllers;
+using Microsoft.OpenApi;
 using WorkflowyNetAPI;
 
 namespace TestWebMVC
@@ -15,7 +15,19 @@ namespace TestWebMVC
 				.AddApplicationPart(typeof(WFAPIController).Assembly)
 				.AddControllersAsServices();
 
+			builder.Services.AddSwaggerGen(options =>
+			{
+				options.SwaggerDoc("v1", new OpenApiInfo { Title = "WorkflowyNetAPI" });
+			});
+
+
 			var app = builder.Build();
+
+			app.UseSwagger();
+			app.UseSwaggerUI(options =>
+			{
+				options.SwaggerEndpoint("v1/swagger.json", "WorkflowyNetAPI");
+			});
 
 			// Configure the HTTP request pipeline.
 			if(!app.Environment.IsDevelopment())

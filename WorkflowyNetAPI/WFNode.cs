@@ -3,18 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace WorkflowyNetAPI
 {
-	public class WFNodeResponse
-	{
-		[JsonPropertyName("node")]
-		public WFNode Node { get; set; } = null!;
-	}
-
-	public class WFNodesResponse
-	{
-		[JsonPropertyName("nodes")]
-		public WFNode[] Nodes { get; set; } = null!;
-	}
-
 	public class WFNode
 	{
 		[JsonPropertyName("id")]
@@ -52,6 +40,21 @@ namespace WorkflowyNetAPI
 		[JsonPropertyName("completedAt")]
 		[JsonConverter(typeof(NullableUnixEpochDateTimeConverter))]
 		public DateTime? CompletedAt { get; set; }
+	}
+
+	public class WFNodeUpdate
+	{
+		[JsonPropertyName("id")]
+		public string Id { get; set; } = null!;
+
+		[JsonPropertyName("name")]
+		public string Name { get; set; } = null!;
+
+		[JsonPropertyName("note")]
+		public string? Note { get; set; } = null;
+
+		[JsonPropertyName("layoutMode")]
+		public string LayoutMode { get; set; } = null!;
 	}
 
 	public class WFNodeData

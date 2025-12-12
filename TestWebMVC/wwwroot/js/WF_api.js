@@ -41,6 +41,20 @@ async function wfapiRequest(endpoint, options = {}) {
 
 // === Individual endpoint functions ======================
 
+export async function WF_createNode({ parentid, name, note = "", layoutMode = "default", position = "last" }) {
+    return wfapiRequest(`/node`, {
+        method: "POST",
+        body: JSON.stringify({ parentid, name, note, layoutMode, position })
+    });
+}
+
+export async function WF_updateNode(item_id, name, note, layoutMode) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}`, {
+        method: "POST",
+        body: JSON.stringify({ name, note, layoutMode })
+    });
+}
+
 export async function WF_fetchNode(item_id) {
     return wfapiRequest(`/node/${encodeURIComponent(item_id)}`);
 }
@@ -48,20 +62,6 @@ export async function WF_fetchNode(item_id) {
 export async function WF_fetchNodes(parentId = null) {
     const query = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
     return wfapiRequest(`/nodes${query}`);
-}
-
-export async function WF_updateNodeName(item_id, name) {
-    return wfapiRequest(`/node/${encodeURIComponent(item_id)}`, {
-        method: "POST",
-        body: JSON.stringify({ name })
-    });
-}
-
-export async function WF_createNode({ parentitem_id, name, note = "", layoutMode = "default", position = "last" }) {
-    return wfapiRequest(`/node`, {
-        method: "POST",
-        body: JSON.stringify({ parentitem_id, name, note, layoutMode, position })
-    });
 }
 
 export async function WF_deleteNode(item_id) {
@@ -76,4 +76,9 @@ export async function WF_uncompleteNode(item_id) {
     return wfapiRequest(`/node/${encodeURIComponent(item_id)}/uncomplete`, { method: "POST" });
 }
 
-// =========================================================
+export async function WF_moveNode(item_id, parent_item_id, position) {
+    return wfapiRequest(`/node/${encodeURIComponent(item_id)}/move`, {
+        method: "POST",
+        body: JSON.stringify({ parent_item_id, position })
+    });
+}
