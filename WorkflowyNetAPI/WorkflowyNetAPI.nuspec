@@ -28,10 +28,8 @@
   </metadata>
 
   <files>
-    <!-- Include your built DLL -->
     <file src="bin/Release/net8.0/WorkflowyNetAPI.dll" target="lib/net8.0" />
-
-    <!-- Include the optional JS file -->
     <file src="js/WF_api.js" target="contentFiles/any/js/" />
+    <file src="../README.md" target="docs\" />
   </files>
 </package>
