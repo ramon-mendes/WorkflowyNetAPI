@@ -2,6 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
   <metadata>
     <id>WorkflowyNetAPI</id>
+    <readme>docs\README.md</readme>
 
     <!-- Version is replaced by dotnet pack using -Version or PackageVersion -->
     <version>$version$</version>
