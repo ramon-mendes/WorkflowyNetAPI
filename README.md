@@ -1,4 +1,6 @@
-﻿A complete C#.NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs
+﻿[![.NET Unit Tests](https://github.com/ramon-mendes/WorkflowyNetAPI/actions/workflows/test.yml/badge.svg)](https://github.com/ramon-mendes/WorkflowyNetAPI/actions/workflows/test.yml)
+
+A complete C#.NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs
 
 .NET Core 8 and onwards
 
