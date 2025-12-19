@@ -46,9 +46,9 @@ jobs:
     - name: Azure Login
       uses: azure/login@v2
       with:
-        client-id: ${{ vars.WorkflowyNetAPI_CLIENT_ID_9444 }}
-        tenant-id: ${{ vars.WorkflowyNetAPI_TENANT_ID_9444 }}
-        subscription-id: ${{ vars.WorkflowyNetAPI_SUBSCRIPTION_ID_9444 }}
+        client-id: ${{ vars.WorkflowyNetAPI_CLIENT_ID_807E }}
+        tenant-id: ${{ vars.WorkflowyNetAPI_TENANT_ID_807E }}
+        subscription-id: ${{ vars.WorkflowyNetAPI_SUBSCRIPTION_ID_807E }}
     - name: Deploy to Azure WebApp
       uses: azure/webapps-deploy@v2
       with:
