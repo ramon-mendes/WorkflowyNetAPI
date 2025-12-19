@@ -10,7 +10,7 @@ namespace WorkflowyNetAPI.Tests
 	{
 		private static WFAPI CreateAPI()
 		{
-			var key = Environment.GetEnvironmentVariable("workflowy_apikey");
+			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY");
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException(
