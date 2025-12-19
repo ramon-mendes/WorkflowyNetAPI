@@ -1,5 +1,4 @@
-﻿// File: Tests/WFAPI_RealIntegrationTests.cs
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using WorkflowyNetAPI;
@@ -22,7 +21,6 @@ namespace WorkflowyNetAPI.Tests
 
 		/// <summary>
 		/// REAL end-to-end test that calls Workflowy backend.
-		/// Mirrors the JS test flow exactly.
 		/// </summary>
 		[Fact]
 		public async Task WFAPI_RealEndToEndFlow()
