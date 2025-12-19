@@ -14,7 +14,7 @@ namespace WorkflowyNetAPI.Tests
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException(
-					"Environment variable workflowy_apikey must be set to run REAL integration tests.");
+                    "Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
 
 			return new WFAPI(key);
 		}

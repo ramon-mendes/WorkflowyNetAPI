@@ -18,7 +18,12 @@ namespace TestWebMVC.Controllers
 			return View();
 		}
 
-		public IActionResult Privacy()
+        public IActionResult JSTests()
+        {
+            return View();
+        }
+
+        public IActionResult Privacy()
 		{
 			return View();
 		}
