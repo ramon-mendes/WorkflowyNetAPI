@@ -7,6 +7,9 @@ namespace TestWebMVC
 	{
 		public static void Main(string[] args)
 		{
+			// demo account
+			Environment.SetEnvironmentVariable("workflowy_apikey", "00303119042bf0cc996c030991064b5d6d646939");
+
 			var builder = WebApplication.CreateBuilder(args);
 
 			// Add services to the container.

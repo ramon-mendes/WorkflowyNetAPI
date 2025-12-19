@@ -1,37 +1,37 @@
 <?xml version="1.0"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
-  <metadata>
-    <id>WorkflowyNetAPI</id>
-    <readme>docs\README.md</readme>
+	<metadata>
+		<id>WorkflowyNetAPI</id>
+		<readme>docs\README.md</readme>
 
-    <!-- Version is replaced by dotnet pack using -Version or PackageVersion -->
-    <version>$version$</version>
+		<!-- Version is replaced by dotnet pack using -Version or PackageVersion -->
+		<version>$version$</version>
 
-    <authors>Ramon Mendes</authors>
-    <owners>Your Name</owners>
+		<authors>Ramon Mendes</authors>
+		<owners>Your Name</owners>
 
-    <license type="expression">MIT</license>
-    <projectUrl>https://github.com/ramon-mendes/WorkflowyNetAPI</projectUrl>
-    <repository type="git" url="https://github.com/ramon-mendes/WorkflowyNetAPI" />
+		<license type="expression">MIT</license>
+		<projectUrl>https://github.com/ramon-mendes/WorkflowyNetAPI</projectUrl>
+		<repository type="git" url="https://github.com/ramon-mendes/WorkflowyNetAPI" />
 
-    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 
-    <description>
-      A complete C#.NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs
-    </description>
+		<description>
+			A complete C#.NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs
+		</description>
 
-    <tags>workflowy api dotnet csharp productivity</tags>
+		<tags>workflowy api dotnet csharp productivity</tags>
 
-    <dependencies>
-      <!-- example -->
-      <!-- <dependency id="Newtonsoft.Json" version="13.0.1" /> -->
-    </dependencies>
-  </metadata>
+		<dependencies>
+		</dependencies>
+	</metadata>
 
-  <files>
-    <file src="bin/Release/net8.0/WorkflowyNetAPI.dll" target="lib/net8.0" />
-    <file src="js/WF_api.js" target="contentFiles/any/js/" />
-    <file src="../README.md" target="docs\" />
-  </files>
+	<files>
+		<file src="bin/Release/net8.0/WorkflowyNetAPI.dll" target="lib/net8.0" />
+		<file src="bin/Release/net8.0/WorkflowyNetAPI.pdb" target="lib/net8.0" />
+
+		<file src="js/WF_api.js" target="contentFiles/any/js/" />
+		<file src="../README.md" target="docs\" />
+	</files>
 </package>
 
