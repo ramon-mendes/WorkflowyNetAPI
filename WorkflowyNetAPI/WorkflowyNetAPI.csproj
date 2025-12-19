@@ -17,9 +17,6 @@
 		<!-- Build -->
 		<Configuration>Release</Configuration>
 
-		<!-- NuGet packaging -->
-		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-
 		<!-- Symbols & debugging -->
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
