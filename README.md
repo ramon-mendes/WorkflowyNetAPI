@@ -21,4 +21,4 @@ ToDo's:
 
 - [ ] WFAPI class: implement a method to get all items recursively (get all children of a given item id, and their children, etc)
 
-  - [] Method to export in various formats (txt, json, xml, etc)
+  - [ ] Method to export in various formats (txt, json, xml, etc)
