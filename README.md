@@ -18,8 +18,8 @@ ToDo's:
 
 [ ] JS API should have a C# controller/backend that just does the proxy call to WF API, so the REST call signature is in the frontend, but the actual call is done in the backend (to avoid CORS issues and exposing API key in frontend).
 
-	[ ] Ask AI if there a lib for that
+  [ ] Ask AI if there a lib for that
 
 [ ] WFAPI class: implement a method to get all items recursively (get all children of a given item id, and their children, etc)
 
-	[ ] Method to export in various formats (txt, json, xml, etc)
+  [ ] Method to export in various formats (txt, json, xml, etc)
