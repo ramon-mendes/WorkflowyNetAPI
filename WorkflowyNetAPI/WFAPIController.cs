@@ -46,7 +46,7 @@ namespace WorkflowyNetAPI
 	[ApiController]
 	public class WFAPIController : ControllerBase
 	{
-		private readonly WFAPI _wfClient;
+		private readonly WFExtendedAPI _wfClient;
 
 		public WFAPIController()
 		{
@@ -54,7 +54,7 @@ namespace WorkflowyNetAPI
 			if(api_key == null)
 				throw new Exception("Environment variable 'workflowy_apikey' is not set.");
 
-			_wfClient = new WFAPI(api_key);
+			_wfClient = new WFExtendedAPI(api_key);
 		}
 
 		// ------------------------------------------------------

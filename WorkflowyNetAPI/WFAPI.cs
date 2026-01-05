@@ -259,7 +259,7 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task<List<WFNode>> ExportAllNodes()
+		public async Task<List<WFNode>> ExportAllNodesAsync()
 		{
 			var (_, content) = await TryRequestStatusOkAsync(
 				() => _client.GetAsync("nodes-export"),
