@@ -96,6 +96,9 @@ namespace WorkflowyNetAPI.Tests
 
 			parentId.Should().NotBeNullOrWhiteSpace();
 
+			// TODO... 
+			var list = await api.ExportAllNodesAsync();
+
 			// -------------------------------------------------------
 			// 8. MOVE NODE under parent
 			// -------------------------------------------------------

@@ -15,7 +15,7 @@ namespace WorkflowyNetAPI
 		// method that calls ExportAllNodes and reconstructs the tree structure
         public async Task<WFTreeNode[]> GetAllNodesAsTreeAsync()
         {
-            var allNodes = await ExportAllNodesAsync();
+            var allNodes = (await ExportAllNodesAsync()).Nodes;
 
             // Create a dictionary to hold nodes by their IDs for easy lookup
             var nodeDict = allNodes.ToDictionary(n => n.Id, n => n);

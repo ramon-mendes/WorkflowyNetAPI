@@ -20,11 +20,17 @@ namespace WorkflowyNetAPI
         public ParentIdOrTarget(string id_or_target)
         {
 			ParentId = id_or_target;
+			Validate();
 		}
 
 		public static implicit operator ParentIdOrTarget(string value)
 		{
 			return new ParentIdOrTarget(value);
+		}
+
+		public void Validate()
+		{
+			// TODO: very low-priority
 		}
 	}
 
@@ -39,6 +45,7 @@ namespace WorkflowyNetAPI
 		[JsonPropertyName("nodes")]
 		public WFNode[] Nodes { get; set; } = null!;
 	}
+
 
 	public class WFAPIException : Exception
 	{
@@ -284,16 +291,16 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task<List<WFNode>> ExportAllNodesAsync()
+		public async Task<WFNodesResponse> ExportAllNodesAsync()
 		{
-			var (_, content) = await TryRequestStatusOkAsync(
+			var (_, content) = await TryRequestAsync(
 				() => _client.GetAsync("nodes-export"),
 				"Export nodes"
 			);
 
 			try
 			{
-				return JsonSerializer.Deserialize<List<WFNode>>(content, _jsonOptions)!;
+				return JsonSerializer.Deserialize<WFNodesResponse>(content, _jsonOptions)!;
 			}
 			catch
 			{
