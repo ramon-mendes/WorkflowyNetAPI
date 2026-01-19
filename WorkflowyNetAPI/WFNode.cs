@@ -5,6 +5,9 @@ namespace WorkflowyNetAPI
 {
 	public class WFNode
 	{
+		public string SiteId => Id.Split('-').Last();
+		public string SiteUrl => "https://workflowy.com/#/" + SiteId;
+
 		[JsonPropertyName("id")]
 		public string Id { get; set; } = null!;
 
@@ -14,6 +17,7 @@ namespace WorkflowyNetAPI
 		[JsonPropertyName("note")]
 		public string? Note { get; set; } = null;
 
+		// The public API only returns the parent node on 'Export all nodes' endpoint
 		[JsonPropertyName("parent_id")]
 		public string? ParentId { get; set; } = null;
 

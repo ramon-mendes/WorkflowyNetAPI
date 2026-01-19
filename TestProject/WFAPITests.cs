@@ -130,7 +130,7 @@ namespace WorkflowyNetAPI.Tests
 			// === RUN THE FLOW ===
 
 			// Create node
-			var newId = await api.CreateAsync(null, "🧪 Test Node", "note", "default", "bottom");
+			var newId = await api.CreateAsync(null, "🧪 Test Node", "note", "default", WFAPI.EPosition.BOTTOM);
 			Assert.Equal("id_1", newId);
 
 			// Fetch node
@@ -152,11 +152,11 @@ namespace WorkflowyNetAPI.Tests
 			Assert.Empty(siblings);
 
 			// Create parent
-			var parentId = await api.CreateAsync(null, "🧪 Parent Node", null, "default", "bottom");
+			var parentId = await api.CreateAsync(null, "🧪 Parent Node", null, "default", WFAPI.EPosition.BOTTOM);
 			Assert.Equal("parent_1", parentId);
 
 			// Move node
-			await api.MoveAsync("id_1", parentId, "bottom");
+			await api.MoveAsync("id_1", parentId, WFAPI.EPosition.BOTTOM);
 
 			// Delete child
 			await api.DeleteAsync("id_1");

@@ -9,6 +9,25 @@ using System.Threading.Tasks;
 
 namespace WorkflowyNetAPI
 {
+	public struct ParentIdOrTarget
+	{
+		public readonly static ParentIdOrTarget TOP_LEVEL = new ParentIdOrTarget("None");
+		public readonly static ParentIdOrTarget HOME = new ParentIdOrTarget("home");
+		public readonly static ParentIdOrTarget INBOX = new ParentIdOrTarget("inbox");
+
+		public string ParentId { get; private set; }
+
+        public ParentIdOrTarget(string id_or_target)
+        {
+			ParentId = id_or_target;
+		}
+
+		public static implicit operator ParentIdOrTarget(string value)
+		{
+			return new ParentIdOrTarget(value);
+		}
+	}
+
 	public class WFNodeResponse
 	{
 		[JsonPropertyName("node")]
@@ -144,7 +163,7 @@ namespace WorkflowyNetAPI
 			ENDPOINTS
 		-------------------------------------------------------*/
 
-		public async Task<string> CreateAsync(string? parentNodeId, string name, string? note, string? layoutMode, string? position)
+		public async Task<string> CreateAsync(string? parentNodeId, string name, string? note, string? layoutMode, EPosition position = EPosition.TOP)
 		{
 			var body = new
 			{
@@ -152,7 +171,7 @@ namespace WorkflowyNetAPI
 				name,
 				note,
 				layoutMode,
-				position
+				position = position.ToString().ToLower()
 			};
 
 			var json = JsonSerializer.Serialize(body, _jsonOptions);
@@ -229,16 +248,22 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task MoveAsync(string nodeId, string parentNodeId, string? position)
+		public enum EPosition
+		{
+			TOP,
+			BOTTOM
+		}
+
+		public async Task MoveAsync(string nodeId, ParentIdOrTarget parentNode, EPosition position = EPosition.TOP)
 		{
 			var json = JsonSerializer.Serialize(new
 			{
-				parent_id = string.IsNullOrWhiteSpace(parentNodeId) ? "None" : parentNodeId,
-				position
+				parent_id = parentNode.ParentId,
+				position = position.ToString().ToLower()
 			}, _jsonOptions);
 
 			await TryRequestStatusOkAsync(
-				() => _client.PostAsync($"nodes/{nodeId}", new StringContent(json, Encoding.UTF8, "application/json")),
+				() => _client.PostAsync($"nodes/{nodeId}/move", new StringContent(json, Encoding.UTF8, "application/json")),
 				"Move node"
 			);
 		}

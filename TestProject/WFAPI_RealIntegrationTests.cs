@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using FluentAssertions;
 using WorkflowyNetAPI;
@@ -35,7 +36,7 @@ namespace WorkflowyNetAPI.Tests
 				name: "🧪 C# Integration Test Node",
 				note: "Created during automated integration test",
 				layoutMode: "default",
-				position: "bottom"
+				position: WFAPI.EPosition.TOP
 			);
 
 			testNodeId.Should().NotBeNullOrWhiteSpace();
@@ -90,7 +91,7 @@ namespace WorkflowyNetAPI.Tests
 				name: "🧪 C# Integration Test Parent Node",
 				note: null,
 				layoutMode: "default",
-				position: "bottom"
+				position: WFAPI.EPosition.BOTTOM
 			);
 
 			parentId.Should().NotBeNullOrWhiteSpace();
@@ -98,11 +99,12 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			// 8. MOVE NODE under parent
 			// -------------------------------------------------------
-			await api.MoveAsync(testNodeId, parentId, "bottom");
+			await api.MoveAsync(testNodeId, parentId, WFAPI.EPosition.BOTTOM);
 
 			// Validate move
 			var movedNode = await api.GetNodeAsync(testNodeId);
-			movedNode.ParentId.Should().Be(parentId);
+			Debug.Assert(false);
+			//movedNode.ParentId.Should().Be(parentId);
 
 			// -------------------------------------------------------
 			// 9. DELETE CHILD

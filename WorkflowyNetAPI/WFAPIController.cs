@@ -34,7 +34,6 @@ namespace WorkflowyNetAPI
 		// JsonPropertyName must stay on the property, not the parameter
 		[property: JsonPropertyName("parent_item_id")]
 		string ParentItemId,
-
 		string? Position
 	);
 
@@ -198,12 +197,14 @@ namespace WorkflowyNetAPI
 			var err = ValidateModel();
 			if(err != null) return err;
 
+			Enum.TryParse<WFAPI.EPosition>(request.Position, true, out var position);
+
 			var created = await _wfClient.CreateAsync(
 				request.ParentId,
 				request.Name,
 				request.Note,
 				request.LayoutMode,
-				request.Position);
+				position);
 
 			return EnvelopeOk(created);
 		});
@@ -248,7 +249,10 @@ namespace WorkflowyNetAPI
 			var err = ValidateId(id) ?? ValidateModel();
 			if(err != null) return err;
 
-			await _wfClient.MoveAsync(id, request.ParentItemId, request.Position);
+			if(!Enum.TryParse<WFAPI.EPosition>(request.Position, true, out var position))
+				return EnvelopeProblem($"Invalid position: '{request.Position}'.", 400);
+
+			await _wfClient.MoveAsync(id, request.ParentItemId, position);
 			return EnvelopeOk();
 		});
 	}
