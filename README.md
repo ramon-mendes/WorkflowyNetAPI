@@ -16,6 +16,8 @@ NuGet: https://www.nuget.org/packages/WorkflowyNetAPI/
 
 ToDo's:
 
+### Lib WF mais próxima de ter oq preciso de essencial/sem desperdicios
+
 - Utilities
   - [ ] WFAPI class: implement a method to get all items recursively (get all children of a given item id, and their children, etc)
   - [ ] Method to export in various formats (txt, json, xml, etc)
