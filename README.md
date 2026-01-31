@@ -18,6 +18,8 @@ ToDo's:
 
 
 CONTINUAR: criei a classe WFTreeNode, mas acho q é desperdício...
+	- pedir pra IA como ela estruturaria as classes
+
 CONTINUAR: criar uma forma de buscar um node pela hash do site - #/7e4ad30626b7
 
 
