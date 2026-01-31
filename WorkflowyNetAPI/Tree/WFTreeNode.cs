@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WorkflowyNetAPI
+namespace WorkflowyNetAPI.Tree
 {
     public class WFTreeNode
     {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -55,6 +56,8 @@ namespace WorkflowyNetAPI
 		public WFAPIException(string message, object? error = null, int statusCode = 500)
 			: base(message)
 		{
+			Debug.Assert(statusCode >= 0);
+
 			Error = error;
 			StatusCode = statusCode;
 		}
@@ -90,8 +93,7 @@ namespace WorkflowyNetAPI
 		/*-------------------------------------------------------
 			HELPERS
 		-------------------------------------------------------*/
-
-		private object? TryParseError(string? content)
+		private object? TryParseJson(string? content)
 		{
 			if(string.IsNullOrWhiteSpace(content))
 				return null;
@@ -102,6 +104,7 @@ namespace WorkflowyNetAPI
 			}
 			catch
 			{
+				Debug.Assert(false);
 				return content;
 			}
 		}
@@ -109,11 +112,11 @@ namespace WorkflowyNetAPI
 		private void EnsureHttpSuccessOrThrow(HttpResponseMessage? response, string content, string op)
 		{
 			if(response == null)
-				throw new WFAPIException($"{op}: empty response", null, 0);
+				throw new WFAPIException($"{op}: empty response", null);
 
 			if(!response.IsSuccessStatusCode)
 			{
-				var errorObj = TryParseError(content);
+				var errorObj = TryParseJson(content);
 				throw new WFAPIException($"{op}: HTTP {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
 			}
 		}
@@ -126,21 +129,23 @@ namespace WorkflowyNetAPI
 			{
 				using var doc = JsonDocument.Parse(content);
 				if(!doc.RootElement.TryGetProperty("status", out var statusProp))
-					throw new WFAPIException($"{op}: missing 'status'", TryParseError(content), (int)response.StatusCode);
+					throw new WFAPIException($"{op}: missing 'status'", TryParseJson(content), (int)response.StatusCode);
 
 				if(!string.Equals(statusProp.GetString(), "ok", StringComparison.OrdinalIgnoreCase))
-					throw new WFAPIException($"{op}: status != ok", TryParseError(content), (int)response.StatusCode);
+					throw new WFAPIException($"{op}: status != ok", TryParseJson(content), (int)response.StatusCode);
 			}
 			catch(JsonException je)
 			{
-				throw new WFAPIException($"{op}: invalid JSON: {je.Message}", TryParseError(content), (int)response.StatusCode);
+				throw new WFAPIException($"{op}: invalid JSON: {je.Message}", TryParseJson(content), (int)response.StatusCode);
 			}
 		}
 
 		/// Generic request helper
+		/// - If checkOkStatus is true, also validates that the response JSON contains "status":"ok".
 		private async Task<(HttpResponseMessage response, string content)> TryRequestAsync(
 			Func<Task<HttpResponseMessage>> send,
-			string operation)
+			string operation,
+			bool checkOkStatus = false)
 		{
 			HttpResponseMessage response;
 
@@ -152,17 +157,11 @@ namespace WorkflowyNetAPI
 
 			var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-			EnsureHttpSuccessOrThrow(response, content, operation);
-			return (response, content);
-		}
+			if (checkOkStatus)
+				EnsureStatusOkOrThrow(response, content, operation);
+			else
+				EnsureHttpSuccessOrThrow(response, content, operation);
 
-		/// Request helper that requires "status": "ok"
-		private async Task<(HttpResponseMessage response, string content)> TryRequestStatusOkAsync(
-			Func<Task<HttpResponseMessage>> send,
-			string operation)
-		{
-			var (response, content) = await TryRequestAsync(send, operation);
-			EnsureStatusOkOrThrow(response, content, operation);
 			return (response, content);
 		}
 
@@ -203,9 +202,10 @@ namespace WorkflowyNetAPI
 		{
 			var json = JsonSerializer.Serialize(node, _jsonOptions);
 
-			await TryRequestStatusOkAsync(
+			await TryRequestAsync(
 				() => _client.PostAsync($"nodes/{node.Id}", new StringContent(json, Encoding.UTF8, "application/json")),
-				"Update node"
+				"Update node",
+				checkOkStatus: true
 			);
 		}
 
@@ -218,7 +218,10 @@ namespace WorkflowyNetAPI
 
 			try
 			{
-				return JsonSerializer.Deserialize<WFNodeResponse>(content, _jsonOptions)!.Node;
+				var node = JsonSerializer.Deserialize<WFNodeResponse>(content, _jsonOptions)!.Node;
+				Debug.Assert(node.ParentId == null);
+
+				return node;
 			}
 			catch(JsonException je)
 			{
@@ -249,9 +252,10 @@ namespace WorkflowyNetAPI
 
 		public async Task DeleteAsync(string nodeId)
 		{
-			await TryRequestStatusOkAsync(
+			await TryRequestAsync(
 				() => _client.DeleteAsync($"nodes/{nodeId}"),
-				"Delete node"
+				"Delete node",
+				checkOkStatus: true
 			);
 		}
 
@@ -269,25 +273,28 @@ namespace WorkflowyNetAPI
 				position = position.ToString().ToLower()
 			}, _jsonOptions);
 
-			await TryRequestStatusOkAsync(
+			await TryRequestAsync(
 				() => _client.PostAsync($"nodes/{nodeId}/move", new StringContent(json, Encoding.UTF8, "application/json")),
-				"Move node"
+				"Move node",
+				checkOkStatus: true
 			);
 		}
 
 		public async Task CompleteAsync(string nodeId)
 		{
-			await TryRequestStatusOkAsync(
-				() => _client.PostAsync($"nodes/{nodeId}/complete", new StringContent("")),
-				"Complete node"
+			await TryRequestAsync(
+				() => _client.PostAsync($"nodes/{nodeId}/complete", new StringContent(""))
+				, "Complete node"
+				, checkOkStatus: true
 			);
 		}
 
 		public async Task UncompleteAsync(string nodeId)
 		{
-			await TryRequestStatusOkAsync(
-				() => _client.PostAsync($"nodes/{nodeId}/uncomplete", new StringContent("")),
-				"Uncomplete node"
+			await TryRequestAsync(
+				() => _client.PostAsync($"nodes/{nodeId}/uncomplete", new StringContent(""))
+				, "Uncomplete node"
+				, checkOkStatus: true
 			);
 		}
 
@@ -295,7 +302,7 @@ namespace WorkflowyNetAPI
 		{
 			var (_, content) = await TryRequestAsync(
 				() => _client.GetAsync("nodes-export"),
-				"Export nodes"
+				"Export all nodes"
 			);
 
 			try

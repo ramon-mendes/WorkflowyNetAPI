@@ -2,7 +2,7 @@ using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace WorkflowyNetAPI
+namespace WorkflowyNetAPI.Utilities
 {
     /// <summary>
     /// Converts Unix epoch seconds <-> DateTime (UTC).

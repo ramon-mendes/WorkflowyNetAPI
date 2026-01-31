@@ -1,6 +1,6 @@
 ﻿[![.NET Unit Tests](https://github.com/ramon-mendes/WorkflowyNetAPI/actions/workflows/test.yml/badge.svg)](https://github.com/ramon-mendes/WorkflowyNetAPI/actions/workflows/test.yml)
 
-A complete C#.NET lib for Workflowy API, also with .js/MVC Controller for your backend/frontend integration needs.
+A complete C#.NET lib for Workflowy API, also for your frotend needs, a JS lib with the correspoing C# MVC controller
 
 .NET Core 8 and onwards.
 
@@ -15,6 +15,11 @@ NuGet: https://www.nuget.org/packages/WorkflowyNetAPI/
 ---
 
 ToDo's:
+
+
+CONTINUAR: criei a classe WFTreeNode, mas acho q é desperdício...
+CONTINUAR: criar uma forma de buscar um node pela hash do site - #/7e4ad30626b7
+
 
 ### Lib WF mais próxima de ter oq preciso de essencial/sem desperdicios
 

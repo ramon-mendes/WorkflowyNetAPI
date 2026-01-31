@@ -2,31 +2,33 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 using FluentAssertions;
+using FluentAssertions.Types;
 using WorkflowyNetAPI;
 using Xunit;
 
 namespace WorkflowyNetAPI.Tests
 {
-	public class WFAPI_RealIntegrationTests
+	public class WFAPI_E2E_Tests
 	{
-		private static WFAPI CreateAPI()
+		private static string GetAPIKeyFromEnv()
 		{
 			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY");
 
 			if(string.IsNullOrWhiteSpace(key))
-				throw new InvalidOperationException(
-                    "Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
+				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
 
-			return new WFAPI(key);
+			return key;
 		}
 
 		/// <summary>
 		/// REAL end-to-end test that calls Workflowy backend.
 		/// </summary>
 		[Fact]
-		public async Task WFAPI_RealEndToEndFlow()
+		public async Task E2E_Flow()
 		{
-			var api = CreateAPI();
+			var key = GetAPIKeyFromEnv();
+			var api = new WFAPI(key);
+			var api_extended = new WFExtendedAPI(key);
 
 			// -------------------------------------------------------
 			// 1. CREATE NODE
@@ -96,21 +98,25 @@ namespace WorkflowyNetAPI.Tests
 
 			parentId.Should().NotBeNullOrWhiteSpace();
 
-			// TODO... 
-			var list = await api.ExportAllNodesAsync();
-
 			// -------------------------------------------------------
 			// 8. MOVE NODE under parent
 			// -------------------------------------------------------
 			await api.MoveAsync(testNodeId, parentId, WFAPI.EPosition.BOTTOM);
 
-			// Validate move
 			var movedNode = await api.GetNodeAsync(testNodeId);
-			Debug.Assert(false);
-			//movedNode.ParentId.Should().Be(parentId);
+			movedNode.ParentId.Should().Be(null);
 
 			// -------------------------------------------------------
-			// 9. DELETE CHILD
+			// 9. WFExtendedAPI: GET THE THREE OF THE 2 ITENS + VALIDATE MOVE
+			// -------------------------------------------------------
+			var tree = await api_extended.GetAllNodesAsTreeAsync();
+
+			/*var list = await api.ExportAllNodesAsync();
+			var found_moved_node = list.Nodes.Single(node => node.Id == movedNode.Id);
+			found_moved_node.ParentId.Should().Be(parentId);*/
+
+			// -------------------------------------------------------
+			// 10. DELETE CHILD
 			// -------------------------------------------------------
 			await api.DeleteAsync(testNodeId);
 
@@ -118,7 +124,7 @@ namespace WorkflowyNetAPI.Tests
 			await fetchDeleted.Should().ThrowAsync<WFAPIException>();
 
 			// -------------------------------------------------------
-			// 10. DELETE PARENT
+			// 11. DELETE PARENT
 			// -------------------------------------------------------
 			await api.DeleteAsync(parentId);
 
