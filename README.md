@@ -16,6 +16,7 @@ NuGet: https://www.nuget.org/packages/WorkflowyNetAPI/
 
 ToDo's:
 
+CONTINUAR: código.js fazer em Typescript q compilo condicionalmente (acho q deve ter isso) pra um repo workflow.js a parte 😆
 
 CONTINUAR: criei a classe WFTreeNode, mas acho q é desperdício...
 	- pedir pra IA como ela estruturaria as classes
