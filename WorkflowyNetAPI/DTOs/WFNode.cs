@@ -2,15 +2,15 @@ using System;
 using System.Text.Json.Serialization;
 using WorkflowyNetAPI.Utilities;
 
-namespace WorkflowyNetAPI
+namespace WorkflowyNetAPI.DTOs
 {
 	public class WFNode
 	{
-		public string Hash => Id.Split('-').Last();
+		public string Hash => Id.ToString().Split('-').Last();
 		public string URL => "https://workflowy.com/#/" + Hash;
 
 		[JsonPropertyName("id")]
-		public string Id { get; set; } = null!;// it is a GUID
+		public Guid Id { get; set; } = Guid.Empty;
 
 		[JsonPropertyName("name")]
 		public string Name { get; set; } = null!;
@@ -20,7 +20,7 @@ namespace WorkflowyNetAPI
 
 		// The public API only returns the parent node on 'Export all nodes' endpoint
 		[JsonPropertyName("parent_id")]
-		public string? ParentId { get; set; } = null;
+		public Guid? ParentId { get; set; } = Guid.Empty;
 
 		[JsonPropertyName("priority")]
 		public int Priority { get; set; }

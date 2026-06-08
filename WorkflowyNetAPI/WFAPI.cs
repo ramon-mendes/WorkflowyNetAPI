@@ -5,49 +5,67 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using WorkflowyNetAPI.DTOs;
 using WorkflowyNetAPI.Utilities;
 
 namespace WorkflowyNetAPI
 {
-	public struct ParentIdOrTarget
+	public class NodeIdentifier
 	{
-		public readonly static ParentIdOrTarget TOP_LEVEL = new ParentIdOrTarget("None");
-		public readonly static ParentIdOrTarget HOME = new ParentIdOrTarget("home");
-		public readonly static ParentIdOrTarget INBOX = new ParentIdOrTarget("inbox");
+		public readonly static NodeIdentifier HOME = TargetNode("None");
 
-		public string ParentId { get; private set; }
+		// your Inbox node, the built-in destination for quickly captured items at the top of your outline.
+		public readonly static NodeIdentifier INBOX = TargetNode("inbox");
 
-        public ParentIdOrTarget(string id_or_target)
-        {
-			ParentId = id_or_target;
-			Validate();
-		}
+		// the root of your calendar.
+		public readonly static NodeIdentifier CALENDAR = TargetNode("calendar");
 
-		public static implicit operator ParentIdOrTarget(string value)
+		// the calendar node for today's date.
+		public readonly static NodeIdentifier TODAY = TargetNode("today");
+
+		// the calendar node for tomorrow's date.
+		public readonly static NodeIdentifier TOMORROW = TargetNode("tomorrow");
+
+		// the calendar node for the first day of next week, based on your week-start-day setting.
+		public readonly static NodeIdentifier NEXT_WEEK = TargetNode("next_week");
+
+		public readonly static NodeIdentifier[] AllIdentifiers = [HOME, INBOX, CALENDAR, TODAY, TOMORROW, NEXT_WEEK];
+
+		private NodeIdentifier()
 		{
-			return new ParentIdOrTarget(value);
 		}
 
-		public void Validate()
+		public string Identifier { get; private set; } = null!;
+
+		public static NodeIdentifier Guid(Guid guid)
 		{
-			// TODO: very low-priority
+			return new NodeIdentifier()
+			{
+				Identifier = guid.ToString()
+			};
+		}
+
+		public static NodeIdentifier TargetNode(string target)
+		{
+			return new() { Identifier = target };
+		}
+
+		public static NodeIdentifier DateNode(DateTime date)
+		{
+			return new() { Identifier = date.ToString("yyyy-MM-dd") };
+		}
+
+		public static NodeIdentifier YearNode(int year)
+		{
+			return new() { Identifier = year.ToString() };
+		}
+
+		public static NodeIdentifier MonthNode(int year, int month)
+		{
+			return new() { Identifier = $"{year}-{month:D2}" };
 		}
 	}
-
-	public class WFNodeResponse
-	{
-		[JsonPropertyName("node")]
-		public WFNode Node { get; set; } = null!;
-	}
-
-	public class WFNodesResponse
-	{
-		[JsonPropertyName("nodes")]
-		public WFNode[] Nodes { get; set; } = null!;
-	}
-
 
 	public class WFAPIException : Exception
 	{
@@ -110,39 +128,39 @@ namespace WorkflowyNetAPI
 			}
 		}
 
-		private void EnsureHttpSuccessOrThrow(HttpResponseMessage? response, string content, string op)
+		private void EnsureHttpSuccessOrThrow(HttpResponseMessage? response, string content, string operation_desc)
 		{
 			if(response == null)
-				throw new WFAPIException($"{op}: empty response", null);
+				throw new WFAPIException($"{operation_desc}: empty response", null);
 
 			if(!response.IsSuccessStatusCode)
 			{
 				var errorObj = TryParseJson(content);
-				throw new WFAPIException($"{op}: HTTP {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
+				throw new WFAPIException($"{operation_desc}: HTTP {(int)response.StatusCode} - {response.ReasonPhrase}", errorObj, (int)response.StatusCode);
 			}
 		}
 
-		private void EnsureStatusOkOrThrow(HttpResponseMessage response, string content, string op)
+		private void EnsureStatusOkOrThrow(HttpResponseMessage response, string content, string operation_desc)
 		{
-			EnsureHttpSuccessOrThrow(response, content, op);
+			EnsureHttpSuccessOrThrow(response, content, operation_desc);
 
 			try
 			{
 				using var doc = JsonDocument.Parse(content);
 				if(!doc.RootElement.TryGetProperty("status", out var statusProp))
-					throw new WFAPIException($"{op}: missing 'status'", TryParseJson(content), (int)response.StatusCode);
+					throw new WFAPIException($"{operation_desc}: missing 'status'", TryParseJson(content), (int)response.StatusCode);
 
 				if(!string.Equals(statusProp.GetString(), "ok", StringComparison.OrdinalIgnoreCase))
-					throw new WFAPIException($"{op}: status != ok", TryParseJson(content), (int)response.StatusCode);
+					throw new WFAPIException($"{operation_desc}: status != ok", TryParseJson(content), (int)response.StatusCode);
 			}
 			catch(JsonException je)
 			{
-				throw new WFAPIException($"{op}: invalid JSON: {je.Message}", TryParseJson(content), (int)response.StatusCode);
+				throw new WFAPIException($"{operation_desc}: invalid JSON: {je.Message}", TryParseJson(content), (int)response.StatusCode);
 			}
 		}
 
 		/// Generic request helper
-		/// - If checkOkStatus is true, also validates that the response JSON contains "status":"ok".
+		/// If checkOkStatus is true, also validates that the response JSON contains "status":"ok".
 		private async Task<(HttpResponseMessage response, string content)> TryRequestAsync(
 			Func<Task<HttpResponseMessage>> send,
 			string operation,
@@ -166,15 +184,15 @@ namespace WorkflowyNetAPI
 			return (response, content);
 		}
 
+
 		/*-------------------------------------------------------
 			ENDPOINTS
 		-------------------------------------------------------*/
-
-		public async Task<string> CreateAsync(string? parentNodeId, string name, string? note, string? layoutMode, EPosition position = EPosition.TOP)
+		public async Task<Guid> CreateAsync(NodeIdentifier parent, string name, string? note = null, string? layoutMode = null, EPosition position = EPosition.TOP)
 		{
 			var body = new
 			{
-				parent_id = string.IsNullOrWhiteSpace(parentNodeId) ? null : parentNodeId,
+				parent_id = parent.Identifier,
 				name,
 				note,
 				layoutMode,
@@ -191,11 +209,11 @@ namespace WorkflowyNetAPI
 			try
 			{
 				var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(content, _jsonOptions)!;
-				return parsed["item_id"];
+				return Guid.Parse(parsed["item_id"]);
 			}
 			catch
 			{
-				return content;
+				throw new WFAPIException("Error deserializing response", content);
 			}
 		}
 
@@ -210,7 +228,7 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task<WFNode> GetNodeAsync(string nodeId)
+		public async Task<WFNode> GetNodeAsync(Guid nodeId)
 		{
 			var (_, content) = await TryRequestAsync(
 				() => _client.GetAsync($"nodes/{nodeId}"),
@@ -220,21 +238,17 @@ namespace WorkflowyNetAPI
 			try
 			{
 				var node = JsonSerializer.Deserialize<WFNodeResponse>(content, _jsonOptions)!.Node;
-				Debug.Assert(node.ParentId == null);
-
 				return node;
 			}
 			catch(JsonException je)
 			{
-				throw new WFAPIException($"Error deserializing node: {je.Message}", content);
+				throw new WFAPIException($"Error deserializing response: {je.Message}", content);
 			}
 		}
 
-		public async Task<WFNode[]> GetNodesAsync(string? parentId = null)
+		public async Task<WFNode[]> GetChildNodesAsync(NodeIdentifier parent)
 		{
-			string url = parentId == null
-				? "nodes?parent_id=None"
-				: $"nodes?parent_id={Uri.EscapeDataString(parentId)}";
+			string url = $"nodes?parent_id={Uri.EscapeDataString(parent.Identifier)}";
 
 			var (_, content) = await TryRequestAsync(
 				() => _client.GetAsync(url),
@@ -247,11 +261,11 @@ namespace WorkflowyNetAPI
 			}
 			catch(JsonException je)
 			{
-				throw new WFAPIException($"Error deserializing nodes: {je.Message}", content);
+				throw new WFAPIException($"Error deserializing response: {je.Message}", content);
 			}
 		}
 
-		public async Task DeleteAsync(string nodeId)
+		public async Task DeleteAsync(Guid nodeId)
 		{
 			await TryRequestAsync(
 				() => _client.DeleteAsync($"nodes/{nodeId}"),
@@ -266,11 +280,11 @@ namespace WorkflowyNetAPI
 			BOTTOM
 		}
 
-		public async Task MoveAsync(string nodeId, ParentIdOrTarget parentNode, EPosition position = EPosition.TOP)
+		public async Task MoveAsync(Guid nodeId, NodeIdentifier parent, EPosition position = EPosition.TOP)
 		{
 			var json = JsonSerializer.Serialize(new
 			{
-				parent_id = parentNode.ParentId,
+				parent_id = parent.Identifier,
 				position = position.ToString().ToLower()
 			}, _jsonOptions);
 
@@ -281,7 +295,7 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task CompleteAsync(string nodeId)
+		public async Task CompleteAsync(Guid nodeId)
 		{
 			await TryRequestAsync(
 				() => _client.PostAsync($"nodes/{nodeId}/complete", new StringContent(""))
@@ -290,7 +304,7 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task UncompleteAsync(string nodeId)
+		public async Task UncompleteAsync(Guid nodeId)
 		{
 			await TryRequestAsync(
 				() => _client.PostAsync($"nodes/{nodeId}/uncomplete", new StringContent(""))
@@ -299,7 +313,6 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		// Made virtual to allow tests to override network call
 		public virtual async Task<WFNodesResponse> ExportAllNodesAsync()
 		{
 			var (_, content) = await TryRequestAsync(
@@ -313,7 +326,24 @@ namespace WorkflowyNetAPI
 			}
 			catch
 			{
-				throw new WFAPIException("Error deserializing export", content);
+				throw new WFAPIException("Error deserializing response", content);
+			}
+		}
+
+		public virtual async Task<WFTarget[]> ListTargetsAsync()
+		{
+			var (_, content) = await TryRequestAsync(
+				() => _client.GetAsync("targets"),
+				"List targets"
+			);
+
+			try
+			{
+				return JsonSerializer.Deserialize<WFTargetsResponse>(content, _jsonOptions)!.Nodes;
+			}
+			catch(JsonException je)
+			{
+				throw new WFAPIException($"Error deserializing response: {je.Message}", content);
 			}
 		}
 	}

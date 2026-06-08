@@ -4,20 +4,22 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using FluentAssertions.Types;
 using WorkflowyNetAPI;
+using WorkflowyNetAPI.DTOs;
 using Xunit;
 
 namespace WorkflowyNetAPI.Tests
 {
-	public class WFAPI_E2E_Tests
+	public class E2E_Tests
 	{
-		private static string GetAPIKeyFromEnv()
+		private static WFExtendedAPI GetAPI()
 		{
 			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY");
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
-			
-			return key;
+
+			var api_extended = new WFExtendedAPI(key);
+			return api_extended;
 		}
 
 		/// <summary>
@@ -26,36 +28,34 @@ namespace WorkflowyNetAPI.Tests
 		[Fact]
 		public async Task E2E_Flow()
 		{
-			var key = GetAPIKeyFromEnv();
-			var api = new WFAPI(key);
-			var api_extended = new WFExtendedAPI(key);
-			var resss = await api_extended.GetAllNodesAsTreeAsync();
+			var api = GetAPI();
 
 			// -------------------------------------------------------
-			// 1. CREATE NODE
+			// CREATE NODE
 			// -------------------------------------------------------
 			var testNodeId = await api.CreateAsync(
-				parentNodeId: null,
+				parent:	NodeIdentifier.HOME,
 				name: "🧪 C# Integration Test Node",
 				note: "Created during automated integration test",
 				layoutMode: "default",
 				position: WFAPI.EPosition.TOP
 			);
 
-			testNodeId.Should().NotBeNullOrWhiteSpace();
+			testNodeId.Should().NotBe(Guid.Empty);
 
 			// -------------------------------------------------------
-			// 2. FETCH NODE
+			// FETCH NODE
 			// -------------------------------------------------------
 			var node = await api.GetNodeAsync(testNodeId);
 			node.Id.Should().Be(testNodeId);
+			node.ParentId.Should().BeNull();
 
 			// -------------------------------------------------------
-			// 3. UPDATE NODE
+			// UPDATE NODE
 			// -------------------------------------------------------
 			await api.UpdateNodeAsync(new WFNodeUpdate
 			{
-				Id = testNodeId,
+				Id = testNodeId.ToString(),
 				Name = "🧠 C# Integration Test Node (Updated)"
 			});
 
@@ -64,7 +64,7 @@ namespace WorkflowyNetAPI.Tests
 			updatedNode.Name.Should().Contain("(Updated)");
 
 			// -------------------------------------------------------
-			// 4. COMPLETE
+			// COMPLETE
 			// -------------------------------------------------------
 			await api.CompleteAsync(testNodeId);
 
@@ -73,7 +73,7 @@ namespace WorkflowyNetAPI.Tests
 			completedNode.Completed.Should().BeTrue();
 
 			// -------------------------------------------------------
-			// 5. UNCOMPLETE
+			// UNCOMPLETE
 			// -------------------------------------------------------
 			await api.UncompleteAsync(testNodeId);
 
@@ -81,60 +81,93 @@ namespace WorkflowyNetAPI.Tests
 			uncompletedNode.Completed.Should().BeFalse();
 
 			// -------------------------------------------------------
-			// 6. FETCH ROOT NODES (siblings)
+			// FETCH ROOT NODES
 			// -------------------------------------------------------
-			var siblings = await api.GetNodesAsync();
-			siblings.Should().NotBeNull();
+			var root_nodes = await api.GetRootNodesAsync();
+			root_nodes.SingleOrDefault(nd => nd.Id == testNodeId).Should().NotBeNull();
 
 			// -------------------------------------------------------
-			// 7. CREATE PARENT NODE
+			// CREATE PARENT NODE
 			// -------------------------------------------------------
 			var parentId = await api.CreateAsync(
-				parentNodeId: null,
+				parent: NodeIdentifier.HOME,
 				name: "🧪 C# Integration Test Parent Node",
 				note: null,
 				layoutMode: "default",
 				position: WFAPI.EPosition.BOTTOM
 			);
 
-			parentId.Should().NotBeNullOrWhiteSpace();
+			parentId.Should().NotBe(Guid.Empty);
 
 			// -------------------------------------------------------
-			// 8. MOVE NODE under parent
+			// MOVE NODE under parent
 			// -------------------------------------------------------
-			await api.MoveAsync(testNodeId, parentId, WFAPI.EPosition.BOTTOM);
+			await api.MoveAsync(testNodeId, NodeIdentifier.Guid(parentId), WFAPI.EPosition.BOTTOM);
 
 			var movedNode = await api.GetNodeAsync(testNodeId);
 			movedNode.ParentId.Should().Be(null);
 
 			// -------------------------------------------------------
-			// 9. WFExtendedAPI: GET THE THREE OF THE 2 ITENS + VALIDATE MOVE
+			// GET NODE by hash
 			// -------------------------------------------------------
-			var res = await api_extended.ExportAllNodesCachedAsync();
-			var res_cached = await api_extended.ExportAllNodesCachedAsync();
-			res_cached.Should().BeEquivalentTo(res); // cache hit
-
-			/*var list = await api.ExportAllNodesAsync();
-			var found_moved_node = list.Nodes.Single(node => node.Id == movedNode.Id);
-			found_moved_node.ParentId.Should().Be(parentId);*/
+			var node_by_hash = await api.FindNodeByHash(testNodeId.ToString().Substring(24));
+			node_by_hash.Should().NotBeNull();
 
 			// -------------------------------------------------------
-			// 10. DELETE CHILD
-			// -------------------------------------------------------
-			await api.DeleteAsync(testNodeId);
-
-			// check if deleted
-			Func<Task> fetchDeleted = async () => await api.GetNodeAsync(testNodeId);
-			await fetchDeleted.Should().ThrowAsync<WFAPIException>();
-
-			// -------------------------------------------------------
-			// 11. DELETE PARENT
+			// DELETE PARENT
 			// -------------------------------------------------------
 			await api.DeleteAsync(parentId);
 
 			// check if deleted
 			Func<Task> fetchParent = async () => await api.GetNodeAsync(parentId);
 			await fetchParent.Should().ThrowAsync<WFAPIException>();
+
+			// -------------------------------------------------------
+			// CHECK IF CHILD WAS DELETED
+			// -------------------------------------------------------
+			Func<Task> fetchChild = async () => await api.GetNodeAsync(testNodeId);
+			await fetchChild.Should().ThrowAsync<WFAPIException>();
+		}
+
+		[Fact]
+		public async Task E2E_ListTargets()
+		{
+			var api = GetAPI();
+			var res = await api.ListTargetsAsync();
+			res.Should().NotBeEmpty();
+		}
+
+		[Fact]
+		public async Task E2E_CacheVerification()
+		{
+			var api = GetAPI();
+
+			// verify cache returns the same result on subsequent calls
+			var res = await api.ExportAllNodesCachedAsync();
+			var res_cached = await api.ExportAllNodesCachedAsync();
+			res_cached.Should().BeEquivalentTo(res); // cache hit
+		}
+
+		[Fact]
+		public async Task E2E_CreateAndTestIdentifiers()
+		{
+			var api = GetAPI();
+			Guid res;
+
+			foreach(var item in NodeIdentifier.AllIdentifiers)
+			{
+				res = await api.CreateAsync(item, "Test child node under " + item.Identifier);
+				res.Should().NotBe(Guid.Empty);
+			}
+
+			res = await api.CreateAsync(NodeIdentifier.YearNode(2030), "Test child node under 2030");
+			res.Should().NotBe(Guid.Empty);
+
+			res = await api.CreateAsync(NodeIdentifier.MonthNode(2030, 1), "Test child node under 2030 jan");
+			res.Should().NotBe(Guid.Empty);
+
+			res = await api.CreateAsync(NodeIdentifier.DateNode(DateTime.Today), "Test child node under TODAY");
+			res.Should().NotBe(Guid.Empty);
 		}
 	}
 }

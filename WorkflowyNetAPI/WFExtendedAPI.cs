@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using WorkflowyNetAPI.DTOs;
 using WorkflowyNetAPI.Tree;
 
 namespace WorkflowyNetAPI
@@ -13,31 +14,35 @@ namespace WorkflowyNetAPI
     {
 		// Simple in-memory cache shared across instances of WFExtendedAPI.
 		// Keep fields private and thread-safe with a lock.
-		private static WFNodesResponse? _exportCache;
-		private static DateTime _exportCacheAtUtc;
-		private static readonly object _exportCacheLock = new();
+		private WFNode[]? _exportCache;
+		private DateTime _exportCacheAtUtc;
+		private readonly object _exportCacheLock = new();
 
 		public WFExtendedAPI(string api_key) : base(api_key)
 		{
         }
+		public async Task<WFNode[]> GetRootNodesAsync()
+		{
+			return await GetChildNodesAsync(NodeIdentifier.HOME);
+		}
 
 		// Calls ExportAllNodes and if it throws WFAPIException with "HTTP 429 - Too Many Requests" StatusCode
 		// return from cache if available, otherwise rethrow the exception
-		public async Task<(WFNodesResponse, DateTime)> ExportAllNodesCachedAsync()
+		public async Task<(WFNode[] Nodes, DateTime Dt)> ExportAllNodesCachedAsync()
 		{
 			try
 			{
-				var resp = await ExportAllNodesAsync().ConfigureAwait(false);
+				WFNodesResponse resp = await ExportAllNodesAsync().ConfigureAwait(false);
 
 				// Update cache
 				var now = DateTime.UtcNow;
 				lock(_exportCacheLock)
 				{
-					_exportCache = resp;
+					_exportCache = resp.Nodes;
 					_exportCacheAtUtc = now;
 				}
 
-				return (resp, now);
+				return (resp.Nodes, now);
 			}
 			catch(WFAPIException ex) when(ex.StatusCode == 429)
 			{
@@ -50,13 +55,12 @@ namespace WorkflowyNetAPI
 					}
 				}
 
-				// No cache available — propagate the original exception
 				throw;
 			}
 		}
 
 		// Calls ExportAllNodes and reconstructs the tree structure, returning a WFTree instance.
-		public async Task<WFTree> GetAllNodesAsTreeAsync()
+		public async Task<WFTree> GetNodesTreeAsync()
         {
             var allNodes = (await ExportAllNodesAsync()).Nodes;
 
@@ -74,7 +78,8 @@ namespace WorkflowyNetAPI
             {
                 var nodeTree = nodeTreeDict[node.Id];
 
-				if (!string.IsNullOrWhiteSpace(node.ParentId) && nodeTreeDict.TryGetValue(node.ParentId, out var parentTreeNode))
+				// Treat missing parent as either null or Guid.Empty (some deserialization paths set default to Guid.Empty)
+				if (node.ParentId.HasValue && node.ParentId.Value != Guid.Empty && nodeTreeDict.TryGetValue(node.ParentId.Value, out var parentTreeNode))
                 {
 					// Attach to parent
 					nodeTree.Parent = parentTreeNode;
@@ -107,6 +112,15 @@ namespace WorkflowyNetAPI
 
             Debug.Assert(rootNodes.All(node => node.Parent == null), "All root nodes should have no parent.");
             return new WFTree { RootNodes = rootNodes.ToArray() };
+		}
+
+		public async Task<WFNode?> FindNodeByHash(string hash)
+		{
+			if(hash.Length != 12)
+				throw new ArgumentException("Hash must be 12 characters long.", nameof(hash));
+
+			var cache = await ExportAllNodesCachedAsync();
+			return cache.Nodes.FirstOrDefault(n => n.Id.ToString().EndsWith(hash));
 		}
 	}
 }
