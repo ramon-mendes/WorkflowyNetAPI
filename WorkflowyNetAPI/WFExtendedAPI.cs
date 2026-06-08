@@ -11,12 +11,52 @@ namespace WorkflowyNetAPI
 {
     public class WFExtendedAPI : WFAPI
     {
-        public WFExtendedAPI(string api_key) : base(api_key)
+		// Simple in-memory cache shared across instances of WFExtendedAPI.
+		// Keep fields private and thread-safe with a lock.
+		private static WFNodesResponse? _exportCache;
+		private static DateTime _exportCacheAtUtc;
+		private static readonly object _exportCacheLock = new();
+
+		public WFExtendedAPI(string api_key) : base(api_key)
 		{
         }
 
-		// method that calls ExportAllNodes and reconstructs the tree structure
-        public async Task<WFTreeNode[]> GetAllNodesAsTreeAsync()
+		// Calls ExportAllNodes and if it throws WFAPIException with "HTTP 429 - Too Many Requests" StatusCode
+		// return from cache if available, otherwise rethrow the exception
+		public async Task<(WFNodesResponse, DateTime)> ExportAllNodesCachedAsync()
+		{
+			try
+			{
+				var resp = await ExportAllNodesAsync().ConfigureAwait(false);
+
+				// Update cache
+				var now = DateTime.UtcNow;
+				lock(_exportCacheLock)
+				{
+					_exportCache = resp;
+					_exportCacheAtUtc = now;
+				}
+
+				return (resp, now);
+			}
+			catch(WFAPIException ex) when(ex.StatusCode == 429)
+			{
+				// Rate limited — return cached value if available
+				lock(_exportCacheLock)
+				{
+					if(_exportCache != null)
+					{
+						return (_exportCache, _exportCacheAtUtc);
+					}
+				}
+
+				// No cache available — propagate the original exception
+				throw;
+			}
+		}
+
+		// Calls ExportAllNodes and reconstructs the tree structure, returning a WFTree instance.
+		public async Task<WFTree> GetAllNodesAsTreeAsync()
         {
             var allNodes = (await ExportAllNodesAsync()).Nodes;
 
@@ -34,23 +74,39 @@ namespace WorkflowyNetAPI
             {
                 var nodeTree = nodeTreeDict[node.Id];
 
-				if (node.ParentId != null)
+				if (!string.IsNullOrWhiteSpace(node.ParentId) && nodeTreeDict.TryGetValue(node.ParentId, out var parentTreeNode))
                 {
-                    var parentTreeNode = nodeTreeDict[node.ParentId];
-                    Debug.Assert(parentTreeNode != null, "Parent node should exist in the dictionary.");
-
+					// Attach to parent
 					nodeTree.Parent = parentTreeNode;
 					parentTreeNode.Children.Add(nodeTree);
 				}
                 else
                 {
-                    // If the node has no parent, it's a root node
+                    // If the node has no parent or parent is missing, treat it as a root node
                     rootNodes.Add(nodeTree);
                 }
             }
 
+            // Sort children of every node by priority (ascending) only
+            foreach (var treeNode in nodeTreeDict.Values)
+            {
+				if (treeNode.Children.Count <= 1)
+					continue;
+
+				treeNode.Children.Sort((a, b) =>
+				{
+					return a.Node.Priority.CompareTo(b.Node.Priority);
+				});
+            }
+
+            // Sort root nodes by priority (ascending) only
+            rootNodes.Sort((a, b) =>
+            {
+				return a.Node.Priority.CompareTo(b.Node.Priority);
+            });
+
             Debug.Assert(rootNodes.All(node => node.Parent == null), "All root nodes should have no parent.");
-            return rootNodes.ToArray();
+            return new WFTree { RootNodes = rootNodes.ToArray() };
 		}
 	}
 }

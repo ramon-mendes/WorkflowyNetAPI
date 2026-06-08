@@ -299,7 +299,8 @@ namespace WorkflowyNetAPI
 			);
 		}
 
-		public async Task<WFNodesResponse> ExportAllNodesAsync()
+		// Made virtual to allow tests to override network call
+		public virtual async Task<WFNodesResponse> ExportAllNodesAsync()
 		{
 			var (_, content) = await TryRequestAsync(
 				() => _client.GetAsync("nodes-export"),

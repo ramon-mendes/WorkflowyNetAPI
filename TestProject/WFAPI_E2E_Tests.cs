@@ -16,7 +16,7 @@ namespace WorkflowyNetAPI.Tests
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
-
+			
 			return key;
 		}
 
@@ -29,6 +29,7 @@ namespace WorkflowyNetAPI.Tests
 			var key = GetAPIKeyFromEnv();
 			var api = new WFAPI(key);
 			var api_extended = new WFExtendedAPI(key);
+			var resss = await api_extended.GetAllNodesAsTreeAsync();
 
 			// -------------------------------------------------------
 			// 1. CREATE NODE
@@ -109,7 +110,9 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			// 9. WFExtendedAPI: GET THE THREE OF THE 2 ITENS + VALIDATE MOVE
 			// -------------------------------------------------------
-			var tree = await api_extended.GetAllNodesAsTreeAsync();
+			var res = await api_extended.ExportAllNodesCachedAsync();
+			var res_cached = await api_extended.ExportAllNodesCachedAsync();
+			res_cached.Should().BeEquivalentTo(res); // cache hit
 
 			/*var list = await api.ExportAllNodesAsync();
 			var found_moved_node = list.Nodes.Single(node => node.Id == movedNode.Id);
@@ -120,6 +123,7 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			await api.DeleteAsync(testNodeId);
 
+			// check if deleted
 			Func<Task> fetchDeleted = async () => await api.GetNodeAsync(testNodeId);
 			await fetchDeleted.Should().ThrowAsync<WFAPIException>();
 
@@ -128,6 +132,7 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			await api.DeleteAsync(parentId);
 
+			// check if deleted
 			Func<Task> fetchParent = async () => await api.GetNodeAsync(parentId);
 			await fetchParent.Should().ThrowAsync<WFAPIException>();
 		}

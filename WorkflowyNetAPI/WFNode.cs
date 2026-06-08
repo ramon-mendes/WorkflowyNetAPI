@@ -6,11 +6,11 @@ namespace WorkflowyNetAPI
 {
 	public class WFNode
 	{
-		public string SiteId => Id.Split('-').Last();
-		public string SiteUrl => "https://workflowy.com/#/" + SiteId;
+		public string Hash => Id.Split('-').Last();
+		public string URL => "https://workflowy.com/#/" + Hash;
 
 		[JsonPropertyName("id")]
-		public string Id { get; set; } = null!;
+		public string Id { get; set; } = null!;// it is a GUID
 
 		[JsonPropertyName("name")]
 		public string Name { get; set; } = null!;
@@ -68,4 +68,3 @@ namespace WorkflowyNetAPI
 		public string LayoutMode { get; set; } = null!;
 	}
 }
-
