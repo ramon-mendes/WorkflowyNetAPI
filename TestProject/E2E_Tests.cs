@@ -5,7 +5,6 @@ using FluentAssertions;
 using FluentAssertions.Types;
 using WorkflowyNetAPI;
 using WorkflowyNetAPI.DTOs;
-using Xunit;
 
 namespace WorkflowyNetAPI.Tests
 {
