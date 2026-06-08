@@ -11,24 +11,22 @@ namespace WorkflowyNetAPI.Tests
 {
 	public class E2E_Tests
 	{
-		private static WFExtendedAPI GetAPI()
+		private static WFExtendedAPI API;
+
+		static E2E_Tests()
 		{
 			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY");
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
 
-			var api_extended = new WFExtendedAPI(key);
-			return api_extended;
+			API = new WFExtendedAPI(key);
 		}
 
-		/// <summary>
-		/// REAL end-to-end test that calls Workflowy backend.
-		/// </summary>
 		[Fact]
-		public async Task E2E_Flow()
+		public async Task E2E_EntireFlow()
 		{
-			var api = GetAPI();
+			var api = API;
 
 			// -------------------------------------------------------
 			// CREATE NODE
@@ -110,7 +108,9 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			// GET NODE by hash
 			// -------------------------------------------------------
-			var node_by_hash = await api.FindNodeByHash(testNodeId.ToString().Substring(24));
+			Thread.Sleep(TimeSpan.FromMinutes(1));// for cache to update
+
+			var node_by_hash = await api.FindNodeByHash(testNodeId.ToString().Substring(24), true);
 			node_by_hash.Should().NotBeNull();
 
 			// -------------------------------------------------------
@@ -132,7 +132,7 @@ namespace WorkflowyNetAPI.Tests
 		[Fact]
 		public async Task E2E_ListTargets()
 		{
-			var api = GetAPI();
+			var api = API;
 			var res = await api.ListTargetsAsync();
 			res.Should().NotBeEmpty();
 		}
@@ -140,7 +140,7 @@ namespace WorkflowyNetAPI.Tests
 		[Fact]
 		public async Task E2E_CacheVerification()
 		{
-			var api = GetAPI();
+			var api = API;
 
 			// verify cache returns the same result on subsequent calls
 			var res = await api.ExportAllNodesCachedAsync();
@@ -151,7 +151,7 @@ namespace WorkflowyNetAPI.Tests
 		[Fact]
 		public async Task E2E_CreateAndTestIdentifiers()
 		{
-			var api = GetAPI();
+			var api = API;
 			Guid res;
 
 			foreach(var item in NodeIdentifier.AllIdentifiers)

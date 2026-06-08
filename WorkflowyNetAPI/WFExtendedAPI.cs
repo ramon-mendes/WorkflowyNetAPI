@@ -32,7 +32,7 @@ namespace WorkflowyNetAPI
 		{
 			try
 			{
-				WFNodesResponse resp = await ExportAllNodesAsync().ConfigureAwait(false);
+				WFNodesResponse resp = await ExportAllNodesAsync();
 
 				// Update cache
 				var now = DateTime.UtcNow;
@@ -56,6 +56,15 @@ namespace WorkflowyNetAPI
 				}
 
 				throw;
+			}
+		}
+
+		public void ClearCache()
+		{
+			lock(_exportCacheLock)
+			{
+				_exportCache = null;
+				_exportCacheAtUtc = default;
 			}
 		}
 
@@ -114,10 +123,14 @@ namespace WorkflowyNetAPI
             return new WFTree { RootNodes = rootNodes.ToArray() };
 		}
 
-		public async Task<WFNode?> FindNodeByHash(string hash)
+		public async Task<WFNode?> FindNodeByHash(string hash, bool enforce_new_cache = false)
 		{
 			if(hash.Length != 12)
 				throw new ArgumentException("Hash must be 12 characters long.", nameof(hash));
+
+			// Clear cache to force fresh data retrieval
+			if(enforce_new_cache)
+				ClearCache();
 
 			var cache = await ExportAllNodesCachedAsync();
 			return cache.Nodes.FirstOrDefault(n => n.Id.ToString().EndsWith(hash));
