@@ -5,13 +5,13 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using WorkflowyNetAPI.DTOs;
 
 namespace WorkflowyNetAPI
 {
 	// ------------------------------------------------------
 	// DTOs — using RECORDS instead of classes
 	// ------------------------------------------------------
-
 	public record NodeCreateRequest(
 		string? ParentId,
 
@@ -102,13 +102,26 @@ namespace WorkflowyNetAPI
 		// Helpers
 		// ------------------------------------------------------
 
-		private IActionResult ValidateId(string id)
+		private IActionResult? ValidateNodeId(string id)
 		{
-			if(!string.IsNullOrWhiteSpace(id))
-				return null!;
+			if(!string.IsNullOrWhiteSpace(id) && Guid.TryParse(id, out _))
+			{
+				return null;
+			}
 
 			ModelState.AddModelError(nameof(id), "Node ID is required.");
 			return ValidateModel();
+		}
+
+		private NodeIdentifier ParseNodeIdentifier(string? id)
+		{
+			if(string.IsNullOrWhiteSpace(id))
+				return NodeIdentifier.HOME;
+
+			if(Guid.TryParse(id, out var guid))
+				return NodeIdentifier.Guid(guid);
+
+			return NodeIdentifier.TargetNode(id);
 		}
 
 		private IActionResult ValidateModel()
@@ -157,10 +170,10 @@ namespace WorkflowyNetAPI
 		[HttpGet("node/{id}")]
 		public Task<IActionResult> GetNode(string id) => Try(async () =>
 		{
-			var err = ValidateId(id);
+			var err = ValidateNodeId(id);
 			if(err != null) return err;
 
-			var node = await _wfClient.GetNodeAsync(id);
+			var node = await _wfClient.GetNodeAsync(Guid.Parse(id));
 			return EnvelopeOk(node);
 		});
 
@@ -168,7 +181,8 @@ namespace WorkflowyNetAPI
 		[HttpGet("nodes")]
 		public Task<IActionResult> GetNodes([FromQuery] string? parentId = null) => Try(async () =>
 		{
-			var nodes = await _wfClient.GetNodesAsync(parentId);
+			var parent = ParseNodeIdentifier(parentId);
+			var nodes = await _wfClient.GetChildNodesAsync(parent);
 			return EnvelopeOk(nodes);
 		});
 
@@ -176,7 +190,7 @@ namespace WorkflowyNetAPI
 		[HttpPost("node/{id}")]
 		public Task<IActionResult> UpdateNode(string id, [FromBody] NodeUpdateRequest request) => Try(async () =>
 		{
-			var err = ValidateId(id) ?? ValidateModel();
+			var err = ValidateNodeId(id) ?? ValidateModel();
 			if(err != null) return err;
 
 			await _wfClient.UpdateNodeAsync(new WFNodeUpdate
@@ -199,8 +213,10 @@ namespace WorkflowyNetAPI
 
 			Enum.TryParse<WFAPI.EPosition>(request.Position, true, out var position);
 
+			var parent = ParseNodeIdentifier(request.ParentId);
+
 			var created = await _wfClient.CreateAsync(
-				request.ParentId,
+				parent,
 				request.Name,
 				request.Note,
 				request.LayoutMode,
@@ -213,10 +229,10 @@ namespace WorkflowyNetAPI
 		[HttpDelete("node/{id}")]
 		public Task<IActionResult> DeleteNode(string id) => Try(async () =>
 		{
-			var err = ValidateId(id);
+			var err = ValidateNodeId(id);
 			if(err != null) return err;
 
-			await _wfClient.DeleteAsync(id);
+			await _wfClient.DeleteAsync(Guid.Parse(id));
 			return EnvelopeOk();
 		});
 
@@ -224,10 +240,10 @@ namespace WorkflowyNetAPI
 		[HttpPost("node/{id}/complete")]
 		public Task<IActionResult> CompleteNode(string id) => Try(async () =>
 		{
-			var err = ValidateId(id);
+			var err = ValidateNodeId(id);
 			if(err != null) return err;
 
-			await _wfClient.CompleteAsync(id);
+			await _wfClient.CompleteAsync(Guid.Parse(id));
 			return EnvelopeOk();
 		});
 
@@ -235,10 +251,10 @@ namespace WorkflowyNetAPI
 		[HttpPost("node/{id}/uncomplete")]
 		public Task<IActionResult> UncompleteNode(string id) => Try(async () =>
 		{
-			var err = ValidateId(id);
+			var err = ValidateNodeId(id);
 			if(err != null) return err;
 
-			await _wfClient.UncompleteAsync(id);
+			await _wfClient.UncompleteAsync(Guid.Parse(id));
 			return EnvelopeOk();
 		});
 
@@ -246,13 +262,14 @@ namespace WorkflowyNetAPI
 		[HttpPost("node/{id}/move")]
 		public Task<IActionResult> MoveNode(string id, [FromBody] NodeMoveRequest request) => Try(async () =>
 		{
-			var err = ValidateId(id) ?? ValidateModel();
+			var err = ValidateNodeId(id) ?? ValidateModel();
 			if(err != null) return err;
 
 			if(!Enum.TryParse<WFAPI.EPosition>(request.Position, true, out var position))
 				return EnvelopeProblem($"Invalid position: '{request.Position}'.", 400);
 
-			await _wfClient.MoveAsync(id, request.ParentItemId, position);
+			var parent = ParseNodeIdentifier(request.ParentItemId);
+			await _wfClient.MoveAsync(Guid.Parse(id), parent, position);
 			return EnvelopeOk();
 		});
 	}
