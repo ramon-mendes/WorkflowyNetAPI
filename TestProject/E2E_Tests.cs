@@ -14,7 +14,7 @@ namespace WorkflowyNetAPI.Tests
 
 		static E2E_Tests()
 		{
-			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY");
+			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY_TEST");
 
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
