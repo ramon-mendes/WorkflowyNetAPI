@@ -51,6 +51,31 @@ await beta.DeleteMirrorAsync(mirror.MirrorId);
 
 Note: deleting a node fails while that node (or any node in its subtree) is a mirror origin with live mirrors. Delete the mirror roots first.
 
+### Caching
+
+`ExportAllNodesCachedAsync` keeps the last export in memory, per `WFExtendedAPI` instance:
+
+```csharp
+var api = new WFExtendedAPI(apiKey);
+
+// How long an export stays fresh (default: 5 minutes).
+// TimeSpan.Zero disables the cache, leaving it as a fallback for HTTP 429 only.
+api.CacheTtl = TimeSpan.FromMinutes(5);
+
+// Served from the cache while it is younger than CacheTtl
+var (nodes, fetchedAtUtc) = await api.ExportAllNodesCachedAsync();
+
+// Bypass a still-fresh cache and hit the API
+var fresh = await api.ExportAllNodesCachedAsync(forceRefresh: true);
+
+// Drop the cached export
+api.ClearCache();
+```
+
+`FindNodeByHash(hash, enforce_new_cache: true)` forwards to `forceRefresh`, so it always re-fetches.
+
+On HTTP 429 (rate limited) the cached export is returned **however stale it is** - `forceRefresh: true` included - and the exception is only rethrown when there is nothing cached. So `Dt` is the timestamp of the data you actually got, not of the call.
+
 ### Environment variables
 
 | Variable | Used by | Values |

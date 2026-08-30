@@ -17,7 +17,7 @@ namespace WorkflowyNetAPI.Tests
 			var key = Environment.GetEnvironmentVariable("WORKFLOWY_APIKEY_TEST");
 
 			if(string.IsNullOrWhiteSpace(key))
-				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
+				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY_TEST must be set to run REAL integration tests.");
 
 			// Optional: 'Production' (default) or 'Beta'. The mirror endpoints require Beta.
 			var environment = Environment.GetEnvironmentVariable("WORKFLOWY_ENV_TEST");
@@ -107,7 +107,7 @@ namespace WorkflowyNetAPI.Tests
 			await api.MoveAsync(testNodeId, NodeIdentifier.Guid(parentId), WFAPI.EPosition.BOTTOM);
 
 			var movedNode = await api.GetNodeAsync(testNodeId);
-			movedNode.ParentId.Should().Be(null);
+			movedNode.ParentId.Should().Be(parentId);
 
 			// -------------------------------------------------------
 			// GET NODE by hash
@@ -220,32 +220,54 @@ namespace WorkflowyNetAPI.Tests
 		{
 			var api = API;
 
-			// verify cache returns the same result on subsequent calls
+			// Within CacheTtl the second call is served from the cache: same nodes, same timestamp.
 			var res = await api.ExportAllNodesCachedAsync();
 			var res_cached = await api.ExportAllNodesCachedAsync();
 			res_cached.Should().BeEquivalentTo(res); // cache hit
+
+			// forceRefresh bypasses a still-fresh cache and hits the API again
+			var res_fresh = await api.ExportAllNodesCachedAsync(forceRefresh: true);
+			res_fresh.Dt.Should().BeAfter(res.Dt);
+			res_fresh.Nodes.Should().BeEquivalentTo(res.Nodes);
 		}
 
 		[Fact]
 		public async Task E2E_CreateAndTestIdentifiers()
 		{
 			var api = API;
-			Guid res;
+			var created = new List<Guid>();
 
-			foreach(var item in NodeIdentifier.AllIdentifiers)
+			async Task CreateUnder(NodeIdentifier parent, string name)
 			{
-				res = await api.CreateAsync(item, "Test child node under " + item.Identifier);
+				var res = await api.CreateAsync(parent, name);
 				res.Should().NotBe(Guid.Empty);
+				created.Add(res);
 			}
 
-			res = await api.CreateAsync(NodeIdentifier.YearNode(2030), "Test child node under 2030");
-			res.Should().NotBe(Guid.Empty);
+			try
+			{
+				foreach(var item in NodeIdentifier.AllIdentifiers)
+					await CreateUnder(item, "Test child node under " + item.Identifier);
 
-			res = await api.CreateAsync(NodeIdentifier.MonthNode(2030, 1), "Test child node under 2030 jan");
-			res.Should().NotBe(Guid.Empty);
-
-			res = await api.CreateAsync(NodeIdentifier.DateNode(DateTime.Today), "Test child node under TODAY");
-			res.Should().NotBe(Guid.Empty);
+				await CreateUnder(NodeIdentifier.YearNode(2030), "Test child node under 2030");
+				await CreateUnder(NodeIdentifier.MonthNode(2030, 1), "Test child node under 2030 jan");
+				await CreateUnder(NodeIdentifier.DateNode(DateTime.Today), "Test child node under TODAY");
+			}
+			finally
+			{
+				// This test runs against a real account: do not leave the nodes behind.
+				// Swallow cleanup errors so they never mask the actual test failure.
+				foreach(var id in created)
+				{
+					try
+					{
+						await api.DeleteAsync(id);
+					}
+					catch(WFAPIException)
+					{
+					}
+				}
+			}
 		}
 	}
 }

@@ -12,11 +12,15 @@ namespace WorkflowyNetAPI
 {
     public class WFExtendedAPI : WFAPI
     {
-		// Simple in-memory cache shared across instances of WFExtendedAPI.
+		// Simple in-memory cache, private to this WFExtendedAPI instance.
 		// Keep fields private and thread-safe with a lock.
 		private WFNode[]? _exportCache;
 		private DateTime _exportCacheAtUtc;
 		private readonly object _exportCacheLock = new();
+
+		// How long an export stays fresh. TimeSpan.Zero disables the cache,
+		// leaving it as a fallback for HTTP 429 only.
+		public TimeSpan CacheTtl { get; set; } = TimeSpan.FromMinutes(5);
 
 		public WFExtendedAPI(string api_key) : base(api_key)
 		{
@@ -35,10 +39,21 @@ namespace WorkflowyNetAPI
 			return await GetChildNodesAsync(NodeIdentifier.HOME);
 		}
 
-		// Calls ExportAllNodes and if it throws WFAPIException with "HTTP 429 - Too Many Requests" StatusCode
-		// return from cache if available, otherwise rethrow the exception
-		public async Task<(WFNode[] Nodes, DateTime Dt)> ExportAllNodesCachedAsync()
+		// Calls ExportAllNodes, serving the result from the in-memory cache while it is younger
+		// than CacheTtl. Pass forceRefresh to bypass a still-fresh cache and always hit the API.
+		// If the call fails with "HTTP 429 - Too Many Requests" the cached value is returned
+		// however stale it is (forceRefresh included), otherwise the exception is rethrown.
+		public async Task<(WFNode[] Nodes, DateTime Dt)> ExportAllNodesCachedAsync(bool forceRefresh = false)
 		{
+			if(!forceRefresh)
+			{
+				lock(_exportCacheLock)
+				{
+					if(_exportCache != null && DateTime.UtcNow - _exportCacheAtUtc < CacheTtl)
+						return (_exportCache, _exportCacheAtUtc);
+				}
+			}
+
 			try
 			{
 				WFNodesResponse resp = await ExportAllNodesAsync();
@@ -137,11 +152,7 @@ namespace WorkflowyNetAPI
 			if(hash.Length != 12)
 				throw new ArgumentException("Hash must be 12 characters long.", nameof(hash));
 
-			// Clear cache to force fresh data retrieval
-			if(enforce_new_cache)
-				ClearCache();
-
-			var cache = await ExportAllNodesCachedAsync();
+			var cache = await ExportAllNodesCachedAsync(forceRefresh: enforce_new_cache);
 			return cache.Nodes.FirstOrDefault(n => n.Id.ToString().EndsWith(hash));
 		}
 	}

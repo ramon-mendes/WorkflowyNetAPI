@@ -31,3 +31,5 @@ jobs:
         run: dotnet test --no-build --configuration Release --verbosity normal
         env:
           WORKFLOWY_APIKEY_TEST: ${{ secrets.WORKFLOWY_APIKEY }}
+          # The mirror endpoints only exist on Beta, so E2E_Mirrors fails on Production.
+          WORKFLOWY_ENV_TEST: Beta
