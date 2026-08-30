@@ -38,9 +38,4 @@
 		<EmbeddedResource Include="js\WF_api.js" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<!-- provides Microsoft.AspNetCore.* types when referenced by an app -->
-		<FrameworkReference Include="Microsoft.AspNetCore.App" />
-	</ItemGroup>
-
 </Project>
