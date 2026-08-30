@@ -1,4 +1,3 @@
-#if false
 using System;
 using System.Diagnostics;
 using System.ComponentModel.DataAnnotations;
@@ -275,4 +274,3 @@ namespace WorkflowyNetAPI
 		});
 	}
 }
-#endif
