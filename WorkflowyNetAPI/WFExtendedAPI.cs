@@ -21,6 +21,15 @@ namespace WorkflowyNetAPI
 		public WFExtendedAPI(string api_key) : base(api_key)
 		{
         }
+
+		public WFExtendedAPI(string api_key, WFEnvironment environment) : base(api_key, environment)
+		{
+		}
+
+		public WFExtendedAPI(string api_key, string baseUrl) : base(api_key, baseUrl)
+		{
+		}
+
 		public async Task<WFNode[]> GetRootNodesAsync()
 		{
 			return await GetChildNodesAsync(NodeIdentifier.HOME);

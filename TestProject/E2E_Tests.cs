@@ -19,7 +19,12 @@ namespace WorkflowyNetAPI.Tests
 			if(string.IsNullOrWhiteSpace(key))
 				throw new InvalidOperationException("Environment variable WORKFLOWY_APIKEY must be set to run REAL integration tests.");
 
-			API = new WFExtendedAPI(key);
+			// Optional: 'Production' (default) or 'Beta'. The mirror endpoints require Beta.
+			var environment = Environment.GetEnvironmentVariable("WORKFLOWY_ENV_TEST");
+
+			API = Enum.TryParse<WFEnvironment>(environment, true, out var wfEnv)
+				? new WFExtendedAPI(key, wfEnv)
+				: new WFExtendedAPI(key);
 		}
 
 		[Fact]
@@ -126,6 +131,80 @@ namespace WorkflowyNetAPI.Tests
 			// -------------------------------------------------------
 			Func<Task> fetchChild = async () => await api.GetNodeAsync(testNodeId);
 			await fetchChild.Should().ThrowAsync<WFAPIException>();
+		}
+
+		// Requires WORKFLOWY_ENV_TEST=Beta - the mirror endpoints do not exist on Production.
+		[Fact]
+		public async Task E2E_Mirrors()
+		{
+			var api = API;
+
+			// -------------------------------------------------------
+			// CREATE ORIGIN + DESTINATION NODES
+			// -------------------------------------------------------
+			var originId = await api.CreateAsync(
+				parent: NodeIdentifier.HOME,
+				name: "🪞 C# Mirror Origin",
+				note: "Created during automated mirror integration test",
+				layoutMode: "default",
+				position: WFAPI.EPosition.TOP
+			);
+
+			originId.Should().NotBe(Guid.Empty);
+
+			var destId = await api.CreateAsync(
+				parent: NodeIdentifier.HOME,
+				name: "🪞 C# Mirror Destination",
+				note: null,
+				layoutMode: "default",
+				position: WFAPI.EPosition.BOTTOM
+			);
+
+			destId.Should().NotBe(Guid.Empty);
+
+			// -------------------------------------------------------
+			// CREATE MIRROR
+			// -------------------------------------------------------
+			var mirror = await api.CreateMirrorAsync(originId, NodeIdentifier.Guid(destId), WFAPI.EPosition.TOP);
+
+			mirror.MirrorId.Should().NotBe(Guid.Empty);
+			mirror.MirrorId.Should().NotBe(originId);
+			mirror.OriginId.Should().Be(originId);
+
+			// -------------------------------------------------------
+			// MIRROR NODE reflects the origin's content
+			// -------------------------------------------------------
+			var mirrorNode = await api.GetNodeAsync(mirror.MirrorId);
+			mirrorNode.IsMirror.Should().BeTrue();
+			mirrorNode.Data.Mirror!.OriginId.Should().Be(originId);
+			mirrorNode.Name.Should().Be("🪞 C# Mirror Origin");
+
+			// -------------------------------------------------------
+			// ORIGIN NODE now points back at the mirror
+			// -------------------------------------------------------
+			var originNode = await api.GetNodeAsync(originId);
+			originNode.IsMirrorOrigin.Should().BeTrue();
+			originNode.Data.Mirror!.MirrorIds.Should().Contain(mirror.MirrorId);
+
+			// -------------------------------------------------------
+			// DELETE MIRROR (origin stays intact)
+			// -------------------------------------------------------
+			await api.DeleteMirrorAsync(mirror.MirrorId);
+
+			var originAfter = await api.GetNodeAsync(originId);
+			originAfter.IsMirrorOrigin.Should().BeFalse();
+
+			// -------------------------------------------------------
+			// DELETING A NON-MIRROR MUST FAIL
+			// -------------------------------------------------------
+			Func<Task> deleteNonMirror = async () => await api.DeleteMirrorAsync(originId);
+			await deleteNonMirror.Should().ThrowAsync<WFAPIException>();
+
+			// -------------------------------------------------------
+			// CLEANUP
+			// -------------------------------------------------------
+			await api.DeleteAsync(destId);
+			await api.DeleteAsync(originId);
 		}
 
 		[Fact]

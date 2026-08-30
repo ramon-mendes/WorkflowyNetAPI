@@ -1,4 +1,4 @@
-﻿
+- [x] Test: how mirrors are shown? (`data.mirror` -> `WFNode.IsMirror` / `IsMirrorOrigin`)
 - [ ] Test: how mirrors are shown?
 
 - Utilities

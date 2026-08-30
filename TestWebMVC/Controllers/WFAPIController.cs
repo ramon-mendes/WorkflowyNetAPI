@@ -10,7 +10,7 @@ using WorkflowyNetAPI.DTOs;
 namespace WorkflowyNetAPI
 {
 	// ------------------------------------------------------
-	// DTOs — using RECORDS instead of classes
+	// DTOs ï¿½ using RECORDS instead of classes
 	// ------------------------------------------------------
 	public record NodeCreateRequest(
 		string? ParentId,
@@ -37,6 +37,13 @@ namespace WorkflowyNetAPI
 		string? Position
 	);
 
+	public record NodeMirrorRequest(
+		// JsonPropertyName must stay on the property, not the parameter
+		[property: JsonPropertyName("parent_id")]
+		string? ParentId,
+		string? Position
+	);
+
 	// ------------------------------------------------------
 	// Controller
 	// ------------------------------------------------------
@@ -53,7 +60,12 @@ namespace WorkflowyNetAPI
 			if(api_key == null)
 				throw new Exception("Environment variable 'workflowy_apikey' is not set.");
 
-			_wfClient = new WFExtendedAPI(api_key);
+			// Optional: 'Production' (default) or 'Beta'. The mirror endpoints require Beta.
+			var environment = Environment.GetEnvironmentVariable("workflowy_environment");
+
+			_wfClient = Enum.TryParse<WFEnvironment>(environment, true, out var wfEnv)
+				? new WFExtendedAPI(api_key, wfEnv)
+				: new WFExtendedAPI(api_key);
 		}
 
 		// ------------------------------------------------------
@@ -270,6 +282,33 @@ namespace WorkflowyNetAPI
 
 			var parent = ParseNodeIdentifier(request.ParentItemId);
 			await _wfClient.MoveAsync(Guid.Parse(id), parent, position);
+			return EnvelopeOk();
+		});
+
+		// POST /WFAPI/node/{id}/mirror
+		[HttpPost("node/{id}/mirror")]
+		public Task<IActionResult> CreateMirror(string id, [FromBody] NodeMirrorRequest request) => Try(async () =>
+		{
+			var err = ValidateNodeId(id) ?? ValidateModel();
+			if(err != null) return err;
+
+			var position = WFAPI.EPosition.TOP;
+			if(!string.IsNullOrWhiteSpace(request.Position) && !Enum.TryParse(request.Position, true, out position))
+				return EnvelopeProblem($"Invalid position: '{request.Position}'.", 400);
+
+			var parent = ParseNodeIdentifier(request.ParentId);
+			var mirror = await _wfClient.CreateMirrorAsync(Guid.Parse(id), parent, position);
+			return EnvelopeOk(mirror);
+		});
+
+		// DELETE /WFAPI/node/{id}/mirror - id is the MIRROR node's id
+		[HttpDelete("node/{id}/mirror")]
+		public Task<IActionResult> DeleteMirror(string id) => Try(async () =>
+		{
+			var err = ValidateNodeId(id);
+			if(err != null) return err;
+
+			await _wfClient.DeleteMirrorAsync(Guid.Parse(id));
 			return EnvelopeOk();
 		});
 	}
