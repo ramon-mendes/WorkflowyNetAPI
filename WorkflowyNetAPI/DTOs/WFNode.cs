@@ -9,6 +9,14 @@ namespace WorkflowyNetAPI.DTOs
 		public string Hash => Id.ToString().Split('-').Last();
 		public string URL => "https://workflowy.com/#/" + Hash;
 
+		// True when this node is a mirror of another node
+		[JsonIgnore]
+		public bool IsMirror => Data?.Mirror?.OriginId != null;
+
+		// True when this node is the origin of one or more mirrors
+		[JsonIgnore]
+		public bool IsMirrorOrigin => Data?.Mirror?.MirrorIds?.Length > 0;
+
 		[JsonPropertyName("id")]
 		public Guid Id { get; set; } = Guid.Empty;
 
@@ -66,5 +74,9 @@ namespace WorkflowyNetAPI.DTOs
 	{
 		[JsonPropertyName("layoutMode")]
 		public string LayoutMode { get; set; } = null!;
+
+		// Only present when the node is a mirror or a mirror origin
+		[JsonPropertyName("mirror")]
+		public WFNodeMirror? Mirror { get; set; } = null;
 	}
 }

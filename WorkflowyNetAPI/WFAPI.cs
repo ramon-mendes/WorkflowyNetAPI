@@ -84,16 +84,47 @@ namespace WorkflowyNetAPI
 
 	public class WFAPI
 	{
-		private const string BaseUrl = "https://workflowy.com/api/v1/";
+		private const string ProductionBaseUrl = "https://workflowy.com/api/v1/";
+		private const string BetaBaseUrl = "https://beta.workflowy.com/api/v1/";
 		private const string UserAgent = "insomnia/11.6.1";
 
 		private readonly HttpClient _client;
 		private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
+		// The API host this instance talks to, always with a trailing slash.
+		public string BaseUrl { get; }
+
+		public static string GetBaseUrl(WFEnvironment environment)
+		{
+			return environment switch
+			{
+				WFEnvironment.Production => ProductionBaseUrl,
+				WFEnvironment.Beta => BetaBaseUrl,
+				_ => throw new ArgumentOutOfRangeException(nameof(environment))
+			};
+		}
+
 		public WFAPI(string api_key)
+			: this(api_key, WFEnvironment.Production)
+		{
+		}
+
+		public WFAPI(string api_key, WFEnvironment environment)
+			: this(api_key, GetBaseUrl(environment))
+		{
+		}
+
+		// Escape hatch for a proxy / staging host. Must point at the '/api/v1/' root.
+		public WFAPI(string api_key, string baseUrl)
 		{
 			if(string.IsNullOrWhiteSpace(api_key))
 				throw new ArgumentException("API key must be provided", nameof(api_key));
+
+			if(string.IsNullOrWhiteSpace(baseUrl))
+				throw new ArgumentException("Base URL must be provided", nameof(baseUrl));
+
+			// HttpClient.BaseAddress drops the last segment when there is no trailing slash
+			BaseUrl = baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
 
 			_client = new HttpClient
 			{
@@ -291,6 +322,42 @@ namespace WorkflowyNetAPI
 			await TryRequestAsync(
 				() => _client.PostAsync($"nodes/{nodeId}/move", new StringContent(json, Encoding.UTF8, "application/json")),
 				"Move node",
+				checkOkStatus: true
+			);
+		}
+
+		// Creates a mirror of nodeId under parent. Requires WFEnvironment.Beta.
+		// When nodeId is itself a mirror, the API follows it to the true origin.
+		public async Task<WFMirrorRef> CreateMirrorAsync(Guid nodeId, NodeIdentifier parent, EPosition position = EPosition.TOP)
+		{
+			var json = JsonSerializer.Serialize(new
+			{
+				parent_id = parent.Identifier,
+				position = position.ToString().ToLower()
+			}, _jsonOptions);
+
+			var (_, content) = await TryRequestAsync(
+				() => _client.PostAsync($"nodes/{nodeId}/mirror", new StringContent(json, Encoding.UTF8, "application/json")),
+				"Create mirror"
+			);
+
+			try
+			{
+				return JsonSerializer.Deserialize<WFMirrorRef>(content, _jsonOptions)!;
+			}
+			catch(JsonException je)
+			{
+				throw new WFAPIException($"Error deserializing response: {je.Message}", content);
+			}
+		}
+
+		// Removes a mirror root, leaving the origin node intact.
+		// mirrorNodeId is the id of the MIRROR itself - passing a non-mirror node returns an error.
+		public async Task DeleteMirrorAsync(Guid mirrorNodeId)
+		{
+			await TryRequestAsync(
+				() => _client.DeleteAsync($"nodes/{mirrorNodeId}/mirror"),
+				"Delete mirror",
 				checkOkStatus: true
 			);
 		}
