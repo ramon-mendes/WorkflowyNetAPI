@@ -8,18 +8,21 @@ jobs:
   build-and-test:
     environment: prod
     runs-on: windows-latest
-    strategy:
-      matrix:
-        dotnet-version: [ '8.0.x', '9.0.x' ]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # No matrix on purpose: TestProject targets net9.0, so a second job never
+      # exercised .NET 8 - it only duplicated the run, and both jobs hit the same
+      # real WorkFlowy account concurrently. Install both SDKs instead, since the
+      # lib itself targets net8.0, and run the suite once.
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ matrix.dotnet-version }}
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: Restore
         run: dotnet restore
