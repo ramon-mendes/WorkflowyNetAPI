@@ -207,6 +207,60 @@ namespace WorkflowyNetAPI.Tests
 			await api.DeleteAsync(originId);
 		}
 
+		// Covers the two documented mirror behaviours E2E_Mirrors does not reach:
+		// CreateMirrorAsync following a mirror through to its true origin, and a node
+		// with live mirrors refusing to be deleted.
+		[Fact]
+		public async Task E2E_MirrorOfMirrorAndOriginDeletion()
+		{
+			var api = API;
+
+			var originId = await api.CreateAsync(NodeIdentifier.HOME, "🪞 C# Mirror-of-Mirror Origin", position: WFAPI.EPosition.TOP);
+			var destA = await api.CreateAsync(NodeIdentifier.HOME, "🪞 C# Mirror Dest A", position: WFAPI.EPosition.BOTTOM);
+			var destB = await api.CreateAsync(NodeIdentifier.HOME, "🪞 C# Mirror Dest B", position: WFAPI.EPosition.BOTTOM);
+
+			try
+			{
+				var first = await api.CreateMirrorAsync(originId, NodeIdentifier.Guid(destA));
+				first.OriginId.Should().Be(originId);
+
+				// Mirroring a mirror resolves through to the true origin
+				var second = await api.CreateMirrorAsync(first.MirrorId, NodeIdentifier.Guid(destB));
+				second.OriginId.Should().Be(originId);
+				second.MirrorId.Should().NotBe(first.MirrorId);
+
+				// The origin tracks both mirrors
+				var originNode = await api.GetNodeAsync(originId);
+				originNode.IsMirrorOrigin.Should().BeTrue();
+				originNode.Data.Mirror!.MirrorIds.Should().Contain(new[] { first.MirrorId, second.MirrorId });
+
+				// A node with live mirrors cannot be deleted
+				Func<Task> deleteOrigin = async () => await api.DeleteAsync(originId);
+				await deleteOrigin.Should().ThrowAsync<WFAPIException>();
+
+				// Dropping the mirror roots first releases the origin
+				await api.DeleteMirrorAsync(first.MirrorId);
+				await api.DeleteMirrorAsync(second.MirrorId);
+
+				var originAfter = await api.GetNodeAsync(originId);
+				originAfter.IsMirrorOrigin.Should().BeFalse();
+			}
+			finally
+			{
+				// Runs against a real account: never leave the nodes behind.
+				foreach(var id in new[] { destA, destB, originId })
+				{
+					try
+					{
+						await api.DeleteAsync(id);
+					}
+					catch(WFAPIException)
+					{
+					}
+				}
+			}
+		}
+
 		[Fact]
 		public async Task E2E_ListTargets()
 		{
